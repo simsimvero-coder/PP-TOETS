@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hemodynamiek-simulator — IC-week coschap CTC</title>
+<style>
+
+  :root{
+    --navy:#0d2240;
+    --navy-soft:#16345c;
+    --cyan:#0aa2dc;
+    --paper:#fdfdfb;
+    --ink:#22272e;
+    --slate:#5c6672;
+    --line:#dfe1dc;
+    --good:#1d7a4f;
+    --good-bg:#e9f4ee;
+    --bad:#b5232e;
+    --bad-bg:#faecec;
+    --sel:#eaf5fb;
+    --viewer:#0e1116;
+    --vessel:#dde3ea;
+    --vessel-dim:#8d99a6;
+    --ring:#ff5a4e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Archivo","Segoe UI",system-ui,-apple-system,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.55;
+    font-size:16px;
+  }
+  .band{background:var(--navy);color:#fff;padding:40px 24px 34px}
+  .band-inner{max-width:980px;margin:0 auto}
+  .band h1{font-size:clamp(25px,4vw,36px);font-weight:800;letter-spacing:-0.02em;line-height:1.12}
+  .band .sub{margin-top:10px;color:#b9c6d8;font-size:15px;max-width:62ch}
+  .band .dept{margin-top:20px;padding-top:12px;border-top:1px solid rgba(255,255,255,.18);font-size:13.5px;color:#8fa1b5}
+
+  main{max-width:980px;margin:0 auto;padding:26px 24px 70px}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .tab{
+    font:inherit;font-weight:700;font-size:15px;
+    padding:10px 18px;border-radius:999px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;
+  }
+  .tab[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+  .tab:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:26px;margin-bottom:18px}
+  h2{font-size:20px;font-weight:700;margin-bottom:10px;letter-spacing:-0.01em}
+  h3{font-size:16px;font-weight:700;margin-bottom:6px}
+  p+p{margin-top:10px}
+  .muted{color:var(--slate)}
+  .small{font-size:14px}
+  ul.plain{padding-left:20px}
+  ul.plain li{margin:5px 0}
+
+  /* systematiek */
+  .steps{counter-reset:s;display:flex;flex-direction:column;gap:0}
+  .step{
+    counter-increment:s;
+    display:flex;gap:16px;
+    padding:16px 0;
+    border-top:1px solid var(--line);
+  }
+  .step:first-child{border-top:none;padding-top:4px}
+  .step::before{
+    content:counter(s);
+    flex:none;width:30px;height:30px;border-radius:50%;
+    background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:14px;margin-top:2px;
+  }
+  .step p{margin-top:3px}
+
+  /* viewers */
+  .viewers{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:14px 0}
+  .viewer{
+    background:var(--viewer);
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid #1d2530;
+  }
+  .viewer-cap{
+    color:#93a2b4;font-size:12.5px;
+    padding:9px 14px;border-bottom:1px solid #1d2530;
+    display:flex;justify-content:space-between;gap:10px;
+  }
+  .viewer svg{display:block;width:100%;height:auto}
+  .vessel{fill:none;stroke:var(--vessel);stroke-linecap:round}
+  .vessel.decor{stroke:var(--vessel-dim)}
+  .vessel.faded{opacity:.28;stroke-dasharray:4 6}
+  .vessel.hov{stroke:var(--cyan)}
+  .vessel.seg-good{stroke:#41c98a}
+  .vessel.seg-bad{stroke:var(--ring)}
+  .hit{fill:none;stroke:transparent;stroke-width:20;stroke-linecap:round}
+  .hit.clickable{cursor:pointer}
+  .hit:focus-visible{outline:none}
+  .hit:focus-visible + .focusring{opacity:1}
+  .aorta{fill:none;stroke:#5b6877;stroke-linecap:round}
+  .svg-label{fill:#7f93a8;font-size:12.5px;font-family:inherit}
+  .ring{fill:none;stroke:var(--ring);stroke-width:2;stroke-dasharray:4 4;opacity:0}
+  .ring.show{opacity:1}
+  @media (prefers-reduced-motion: no-preference){
+    .ring.show{animation:pulse 1.6s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.95}50%{opacity:.35}}
+  }
+
+  /* casus */
+  .dots{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+  .dot{width:12px;height:12px;border-radius:50%;background:var(--line)}
+  .dot.now{background:var(--navy);outline:3px solid var(--sel)}
+  .dot.done{background:var(--good)}
+  .dots .lbl{font-size:13.5px;font-weight:700;color:var(--slate);margin-left:6px}
+  .vignette{
+    border-left:3px solid var(--navy);
+    background:#f6f7f9;
+    padding:14px 16px;border-radius:0 8px 8px 0;
+    font-size:15px;
+  }
+  .prompt{font-size:16.5px;font-weight:700;margin:16px 0 12px}
+  .opts{display:flex;flex-direction:column;gap:10px}
+  .opt{
+    text-align:left;background:#fff;border:1px solid var(--line);border-radius:8px;
+    padding:12px 15px;font:inherit;font-size:15px;line-height:1.45;cursor:pointer;
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .opt .letter{
+    flex:none;width:25px;height:25px;border-radius:50%;
+    border:1.5px solid var(--slate);color:var(--slate);
+    display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;margin-top:1px;
+  }
+  .opt:hover{border-color:var(--navy)}
+  .opt.correct{border-color:var(--good);background:var(--good-bg)}
+  .opt.correct .letter{background:var(--good);border-color:var(--good);color:#fff}
+  .opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
+  .opt.wrong .letter{background:var(--bad);border-color:var(--bad);color:#fff}
+  .opt:disabled{cursor:default}
+  .opt:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .miniresult{margin-top:12px;font-size:14.5px;font-weight:600}
+  .miniresult.ok{color:var(--good)}
+  .miniresult.nok{color:var(--bad)}
+
+  .feedback{
+    border-left:3px solid var(--cyan);
+    background:#f4fafd;
+    padding:16px 18px;border-radius:0 8px 8px 0;
+    margin-top:18px;font-size:14.8px;
+  }
+  .feedback h3{margin-bottom:8px}
+  .feedback ul{padding-left:20px;margin-top:8px}
+  .feedback li{margin:4px 0}
+
+  button.btn{
+    font:inherit;font-weight:700;cursor:pointer;border:none;border-radius:8px;
+    background:var(--navy);color:#fff;padding:12px 24px;font-size:15.5px;margin-top:18px;
+  }
+  button.btn:hover{background:var(--navy-soft)}
+  button.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--slate)}
+
+  /* anatomie infopaneel */
+  .info{
+    border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;background:#fff;min-height:96px;
+  }
+  .info h3{color:var(--navy)}
+  .info .row{font-size:14.5px;margin-top:4px}
+  .info .row strong{font-weight:700}
+
+  /* eindresultaat */
+  .score-line{display:flex;align-items:baseline;gap:12px;margin:4px 0 12px}
+  .score-big{font-size:48px;font-weight:800;letter-spacing:-0.03em;color:var(--navy)}
+  .case-row{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:9px 0;font-size:14.5px}
+  .case-row:first-of-type{border-top:none}
+
+  .hidden{display:none}
+  footer{max-width:980px;margin:0 auto;padding:0 24px 46px;font-size:13px;color:var(--slate)}
+  footer p+p{margin-top:6px}
+  @media (max-width:560px){.card{padding:18px}.band{padding:32px 20px 26px}}
+
+  /* ── BKO-laag (didactische verantwoording) ── */
+  .bko-btn{margin-top:16px;background:transparent;border:1px solid rgba(255,255,255,.45);color:#dfe8f2;border-radius:999px;padding:7px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .bko-btn:hover{border-color:#fff;color:#fff}
+  .bko-btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  body:not(.bko-on) .bko-only{display:none}
+  .bko-tag{display:inline-block;background:#efecf9;color:#4f3fae;border:1px solid #d8d2f0;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;margin:0 6px 6px 0}
+  .bko-panel{background:#f8f6fd;border:1px solid #ddd6f3;border-radius:10px;padding:26px;margin-bottom:18px}
+  .bko-panel h2{color:#4f3fae}
+  .bko-panel .bko-intro{font-size:13.5px;color:#6b6394;margin-bottom:8px}
+  .bko-row{padding:12px 0;border-top:1px solid #e6e1f5}
+  .bko-row h3{font-size:15px;font-weight:700;margin-bottom:3px}
+  .bko-row p{font-size:14.5px}
+  .bko-refs{margin-top:12px;font-size:13px;color:#6b6394}
+
+.mon{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0}
+.mt{background:var(--viewer);border-radius:8px;padding:12px 14px;color:#dfe8f2}
+.mt .k{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:#8fa3b8}
+.mt .v{font-size:26px;font-weight:800;margin-top:2px}
+.mt .u{font-size:12px;color:#8fa3b8}
+.mt.warn .v{color:#ffd27d}.mt.alarm .v{color:#ff8f8f}.mt.goodv .v{color:#7de3a0}
+.sliders{display:grid;gap:16px;margin:16px 0}
+.sl label{font-weight:700;font-size:14.5px;display:flex;justify-content:space-between}
+.sl input[type=range]{width:100%;accent-color:var(--navy);height:28px}
+.sl .hint{font-size:13px;color:var(--slate)}
+.presets{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.interp{border-left:4px solid var(--cyan);background:#fff;padding:12px 14px;border-radius:0 8px 8px 0;margin-top:12px;font-size:15px}
+.interp strong{color:var(--navy)}
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="band-inner">
+    <h1>Hemodynamiek-simulator: vulling, pomp en weerstand</h1>
+    <p class="sub">Draai zelf aan de drie knoppen van de circulatie en zie wat de monitor doet. Daarna vijf IC-casussen waarin je eerst het pr&oacute;bleem benoemt en pas daarna het middel kiest &mdash; de denkstap die aan het IC-bed vaak onzichtbaar blijft.</p>
+    <p class="dept">Coschap Cardiothoracale Chirurgie &middot; Maastricht UMC+ &middot; kwalitatief onderwijsmodel, geen fysiologische rekentool; doseringen en keuzes zijn IC-werk volgens lokaal protocol</p>
+    <button class="bko-btn" id="btn-bko" aria-pressed="false">Didactische verantwoording tonen</button>
+  </div>
+</header>
+
+<main>
+  <section class="bko-panel bko-only">
+    <h2>Didactische verantwoording (BKO-laag)</h2>
+    <p class="bko-intro">Voor beoordelaars en collega-docenten.</p>
+    <div class="bko-row"><h3>E&eacute;n mentaal model, drie knoppen</h3><p>De hele simulatie reduceert de circulatie tot vulling &times; pomp &times; weerstand. Die reductie is bewust: het is het minimale model waarmee een coassistent elke IC-situatie kan ordenen, zonder de extraneous load van getallen en doseringen (Van Merri&euml;nboer &amp; Sweller, 2010).</p></div>
+    <div class="bko-row"><h3>Experimenteren zonder risico</h3><p>Vrij draaien aan de schuifjes geeft directe, veilige feedback op voorspellingen (\u2018wat gebeurt er met de CVD als de pomp faalt?\u2019) &mdash; succeservaringen die het competentiegevoel voeden v&oacute;&oacute;r de student de echte IC opstapt (Deci &amp; Ryan, 2000).</p></div>
+    <div class="bko-row"><h3>Eerst het probleem, dan het middel</h3><p>De casusvragen dwingen de redeneervolgorde af die experts impliciet hanteren: categoriseer het falen, kies d&aacute;n de interventiecategorie. Dit expliciteren is de kern van cognitive apprenticeship (Collins e.a., 1989) en sluit aan op de inotropicatabel in het handboek &mdash; die bewust geen doseringen bevat.</p></div>
+    <div class="bko-row"><h3>Contrasterende casussen</h3><p>Vijf casussen met deels dezelfde getallen maar verschillende diagnoses (hoge CVD bij pompfalen &eacute;n bij tamponade) trainen onderscheidend kijken in plaats van patroon-stampen.</p></div>
+    <p class="bko-refs">Collins e.a. (1989); Deci &amp; Ryan (2000); Van Merri&euml;nboer &amp; Sweller (2010). Volledige verwijzingen: zie portfolio.</p>
+  </section>
+
+  <nav class="tabs" role="tablist" style="display:flex;gap:8px;margin-bottom:18px">
+    <button class="tab" id="tab-vrij" role="tab" aria-selected="true">1 &middot; Vrij experimenteren</button>
+    <button class="tab" id="tab-cas" role="tab" aria-selected="false">2 &middot; Casussen</button>
+  </nav>
+
+  <section id="panel-vrij">
+    <section class="card">
+      <h2>De monitor</h2>
+      <div class="mon" id="mon"></div>
+      <div class="interp" id="interp"></div>
+    </section>
+    <section class="card">
+      <h2>De drie knoppen</h2>
+      <div class="sliders">
+        <div class="sl"><label for="s-p">Vulling (preload) <span id="v-p">50</span></label><input type="range" id="s-p" min="5" max="100" value="50"><div class="hint">Hoeveel bloed komt er terug naar het hart? Denk: bloedverlies, vaatverwijding, vullen.</div></div>
+        <div class="sl"><label for="s-c">Pompkracht (contractiliteit) <span id="v-c">50</span></label><input type="range" id="s-c" min="5" max="100" value="50"><div class="hint">Hoe krachtig knijpt het ventrikel? Denk: stunning na ECC, infarct, inotropie.</div></div>
+        <div class="sl"><label for="s-r">Vaatweerstand (afterload) <span id="v-r">50</span></label><input type="range" id="s-r" min="5" max="100" value="50"><div class="hint">Hoe strak staan de vaten? Denk: vasoplegie na ECC, vasopressie, nabelasting.</div></div>
+      </div>
+      <div class="presets">
+        <button class="btn ghost" data-pre="50,50,50">Normaal</button>
+        <button class="btn ghost" data-pre="15,55,60">Ondervulling</button>
+        <button class="btn ghost" data-pre="70,18,55">Pompfalen</button>
+        <button class="btn ghost" data-pre="55,60,12">Vasoplegie</button>
+      </div>
+      <p class="small muted">Probeer per preset eerst te voorspellen wat de monitor gaat doen &mdash; en kijk dan pas. Let vooral op het duo tensie + CVD: dat onderscheidt de meeste beelden.</p>
+    </section>
+  </section>
+
+  <section id="panel-cas" class="hidden">
+    <section class="card" id="cas-intro">
+      <h2>Vijf IC-casussen</h2>
+      <p>Per casus twee vragen: <strong>welk probleem</strong> heeft deze pati&euml;nt (vulling, pomp, weerstand of obstructie), en <strong>welke interventiecategorie</strong> hoort daarbij. Tien punten totaal. Doseringen vragen we bewust niet: jouw doel deze week is de logica kunnen uitleggen.</p>
+      <p><button class="btn" id="cas-start">Start de casussen</button></p>
+    </section>
+    <section class="card hidden" id="cas-game">
+      <div class="dots" id="cas-dots"></div>
+      <h2 id="cas-title"></h2>
+      <p class="vignette" id="cas-vig"></p>
+      <div class="mon" id="cas-mon"></div>
+      <div id="cas-step"></div>
+      <div id="cas-feedback"></div>
+    </section>
+    <section class="card hidden" id="cas-result">
+      <h2>Je resultaat</h2>
+      <div class="score-line"><span class="score-big" id="cas-score">0</span><span class="muted">van 10 punten</span></div>
+      <div id="cas-rescases"></div>
+      <div class="feedback" style="margin-top:16px"><h3>Onthoud &eacute;&eacute;n ding</h3><p>Vraag aan elk IC-bed niet \u201Cwelk middel hangt er?\u201D maar \u201Cwelk probleem heeft deze pati&euml;nt \u2014 en klopt het middel daarbij?\u201D. Wie die vraag kan beantwoorden, begrijpt de IC-week.</p></div>
+      <button class="btn ghost" id="cas-again">Casussen opnieuw</button>
+    </section>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+document.body.classList.remove("bko-on");
+$("btn-bko").addEventListener("click", () => {
+  const on = document.body.classList.toggle("bko-on");
+  $("btn-bko").setAttribute("aria-pressed", on);
+  $("btn-bko").textContent = on ? "Didactische verantwoording verbergen" : "Didactische verantwoording tonen";
+});
+$("tab-vrij").addEventListener("click", () => showTab("vrij"));
+$("tab-cas").addEventListener("click", () => showTab("cas"));
+function showTab(w){
+  ["vrij","cas"].forEach(k => {
+    $("panel-"+k).classList.toggle("hidden", k!==w);
+    $("tab-"+k).setAttribute("aria-selected", k===w);
+  });
+}
+
+/* ── kwalitatief model ── */
+function model(p,c,r){
+  const fp = p<=60 ? 0.35+0.65*p/60 : 1.0-0.12*(p-60)/40;   // Frank-Starling + plateau
+  const fc = 0.30+0.70*(c/50);                              // contractiliteit
+  const sv = 72*fp*Math.min(fc,1.5);
+  const hr = Math.max(55, Math.min(135, Math.round(72 + (50-c)*0.45 + (50-p)*0.35)));
+  const co = hr*sv/1000;
+  const map = Math.max(28, Math.min(140, Math.round(co*(6.5+9.5*r/50))));
+  const cvd = Math.max(1, Math.min(24, Math.round(2 + p*0.09 + Math.max(0,(50-c))*0.16)));
+  const ci = (co/1.9);
+  return {hr, map, cvd, ci, co};
+}
+function klasse(v, lo, hi){ return v<lo ? "alarm" : (v>hi ? "warn" : "goodv"); }
+function tegel(k,v,u,cls){ return '<div class="mt '+(cls||"")+'"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="u">'+u+'</div></div>'; }
+
+function renderVrij(){
+  const p=+$("s-p").value, c=+$("s-c").value, r=+$("s-r").value;
+  $("v-p").textContent=p; $("v-c").textContent=c; $("v-r").textContent=r;
+  const m = model(p,c,r);
+  $("mon").innerHTML =
+    tegel("Gem. arteri\u00EBle druk", m.map, "mmHg (MAP)", m.map<60?"alarm":(m.map>110?"warn":"goodv")) +
+    tegel("Hartfrequentie", m.hr, "/min", m.hr>110?"warn":"goodv") +
+    tegel("CVD", m.cvd, "mmHg", m.cvd>14?"warn":(m.cvd<3?"warn":"goodv")) +
+    tegel("Cardiac index", m.ci.toFixed(1), "l/min/m\u00B2", m.ci<2.2?"alarm":"goodv");
+  let t;
+  if(m.map>=60 && m.ci>=2.2 && m.cvd<=13) t = "<strong>Gebalanceerd profiel.</strong> Alle drie de knoppen in evenwicht \u2014 dit is je referentiebeeld.";
+  else if(r<=25 && m.ci>=2.2) t = "<strong>Weerstandsprobleem (vasoplegie-profiel):</strong> de pomp doet het prima, maar de vaten staan wijd open \u2014 warme pati\u00EBnt, lage tensie bij goede output. Klassiek na extracorporele circulatie. Interventiecategorie: vasopressie (denk noradrenaline).";
+  else if(c<=25 && m.cvd>=12) t = "<strong>Pompprobleem:</strong> lage output terwijl de vullingsdrukken juist opl\u00F3pen \u2014 het bloed staat v\u00F3\u00F3r een falend ventrikel. Interventiecategorie: inotropie (denk dobutamine; bij hoge vullingsdrukken een inodilatator) \u2014 en z\u00F3\u00E9k de oorzaak.";
+  else if(p<=25 && m.cvd<=5) t = "<strong>Vullingsprobleem:</strong> lage CVD, lage tensie, compensatoire tachycardie \u2014 er komt te weinig terug naar het hart. Interventiecategorie: volume \u2014 en bedenk w\u00E1\u00E1rom de vulling laag is (bloedt hij?).";
+  else t = "<strong>Gemengd beeld.</strong> Kijk naar het duo tensie + CVD en vraag je af welke knop het verst van normaal staat \u2014 dat is meestal je eerste aangrijpingspunt.";
+  $("interp").innerHTML = t;
+}
+["s-p","s-c","s-r"].forEach(id => $(id).addEventListener("input", renderVrij));
+document.querySelectorAll("[data-pre]").forEach(b => b.addEventListener("click", () => {
+  const [p,c,r] = b.getAttribute("data-pre").split(",");
+  $("s-p").value=p; $("s-c").value=c; $("s-r").value=r; renderVrij();
+}));
+renderVrij();
+
+/* ── casussen ── */
+const PROBLEMEN = ["Vullingsprobleem (te weinig terugstroom)","Pompprobleem (falend ventrikel)","Weerstandsprobleem (vasoplegie)","Obstructief probleem (het hart wordt belemmerd)"];
+const INTERVENTIES = ["Volume geven \u2014 en de oorzaak van het verlies aanpakken","Inotropie (pomp ondersteunen), oorzaak zoeken","Vasopressie (vaten aanspannen)","Geen middel: de obstructie opheffen \u2014 spoedecho, punctie of re-exploratie"];
+const CAS = [
+ {t:"Casus 1 \u2014 warm en wijd", vig:"Man, 66, twee uur terug van de OK na een CABG met lange perfusietijd. Hij voelt warm aan, de huid is goed doorbloed, maar de tensie blijft laag ondanks vulling.",
+  mon:[["MAP","54","mmHg",1],["HF","96","/min",0],["CVD","5","mmHg",0],["CI","3,4","l/min/m\u00B2",0]],
+  probleem:2, uitleg1:"Lage tensie bij een g\u00F3\u00E9de output en lage vullingsdrukken, warme periferie: de vaten staan open. Vasoplegie na extracorporele circulatie is het klassieke voorbeeld van een zuiver weerstandsprobleem.",
+  interventie:2, uitleg2:"De pomp hoeft geen hulp en vullen is al geprobeerd: hier hoort vasopressie \u2014 op de IC meestal noradrenaline. Middel volgt probleem."},
+ {t:"Casus 2 \u2014 koud en klam", vig:"Vrouw, 72, dag 0 na een klepvervanging bij slechte ventrikelfunctie. Koude acra, marmering, urineproductie loopt terug.",
+  mon:[["MAP","62","mmHg",0],["HF","104","/min",1],["CVD","15","mmHg",1],["CI","1,7","l/min/m\u00B2",1]],
+  probleem:1, uitleg1:"Lage cardiac index m\u00E9t hoge CVD en koude periferie: het bloed staat voor een falend ventrikel. Dit is het spiegelbeeld van casus 1 \u2014 vergelijk de CI en de CVD.",
+  interventie:1, uitleg2:"Inotrope ondersteuning (denk dobutamine; bij hoge vullingsdrukken een inodilatator zoals milrinon) \u00E9n de oorzaak zoeken: stunning, ischemie, klepprobleem? Een middel zonder oorzaakvraag is symptoombestrijding."},
+ {t:"Casus 3 \u2014 de drain die te hard werkt", vig:"Man, 58, drie uur na CABG. De verpleegkundige meldt 220 ml drainproductie het afgelopen uur. Hij is bleek en dorstig.",
+  mon:[["MAP","56","mmHg",1],["HF","122","/min",1],["CVD","3","mmHg",1],["CI","2,0","l/min/m\u00B2",1]],
+  probleem:0, uitleg1:"Lage CVD, tachycardie, lage tensie \u00E9n een verklarende bron (de drain): een vullingsprobleem door actief verlies. De lage CVD onderscheidt dit van tamponade en pompfalen.",
+  interventie:0, uitleg2:"Volume geven koopt tijd, maar de echte interventie is de bl\u00F3\u00E9ding aanpakken: melden, stolling en kruisbloed, rekening houden met re-exploratie. Vullen z\u00F3nder de bron aan te pakken is dweilen."},
+ {t:"Casus 4 \u2014 het stille gevaar", vig:"Vrouw, 69, dag 0 na een aortaklepvervanging. Drains al uren vrijwel stil. Ze wordt onrustig; de beademingsdrukken lopen op en de tensie zakt bij elke inademing verder weg.",
+  mon:[["MAP","58","mmHg",1],["HF","118","/min",1],["CVD","17","mmHg",1],["CI","1,8","l/min/m\u00B2",1]],
+  probleem:3, uitleg1:"Hoge CVD \u00E9n lage output \u00E9n stille drains \u00E9n uitgesproken ademvariatie van de tensie: het hart wordt van buitenaf belemmerd \u2014 tamponade. Let op: de getallen lijken op pompfalen (casus 2); de context (stille drains, acuut beloop) maakt het verschil.",
+  interventie:3, uitleg2:"Hier bestaat geen juiste infuuspomp: de behandeling is de obstructie opheffen \u2014 spoedecho en decompressie (re-sternotomie of punctie). Inotropie of vasopressie kopen hooguit minuten en mogen de echte interventie nooit vertragen."},
+ {t:"Casus 5 \u2014 de rechterkant", vig:"Man, 63, na een mitralisklepoperatie bij langbestaande pulmonale hypertensie. De echo toont een gedilateerde, slecht knijpende rechterventrikel met een leeg, klein linkerventrikel.",
+  mon:[["MAP","60","mmHg",1],["HF","110","/min",1],["CVD","18","mmHg",1],["CI","1,9","l/min/m\u00B2",1]],
+  probleem:1, uitleg1:"Ook dit is een pompprobleem \u2014 maar van de r\u00E9chterkamer, die tegen een hoge longvaatweerstand op moet. De hoge CVD met een leeg linkerventrikel is de vingerafdruk van rechterventrikelfalen.",
+  interventie:1, uitleg2:"Inotrope ondersteuning, bij voorkeur met een inodilatator (milrinon) die \u00F3\u00F3k de longvaatweerstand verlaagt \u2014 en juist terughoudend vullen: een overvulde rechterkamer drukt het septum naar links en maakt het erger. Zelfde categorie als casus 2, wezenlijk andere uitvoering: d\u00E1t is waarom de oorzaakvraag ertoe doet."}
+];
+let ci_ = 0, cph = 0, csub = [0,0], cscores = [];
+$("cas-start").addEventListener("click", startCas);
+$("cas-again").addEventListener("click", startCas);
+function startCas(){
+  ci_ = 0; cscores = [];
+  $("cas-result").classList.add("hidden");
+  $("cas-intro").classList.add("hidden");
+  $("cas-game").classList.remove("hidden");
+  renderCas();
+}
+function renderCas(){
+  const c = CAS[ci_]; csub = [0,0];
+  const d = $("cas-dots"); d.innerHTML = "";
+  CAS.forEach((x,k) => { const s = document.createElement("span"); s.className = "dot"+(k===ci_?" now":(k<ci_?" done":"")); d.appendChild(s); });
+  $("cas-title").textContent = c.t;
+  $("cas-vig").textContent = c.vig;
+  $("cas-mon").innerHTML = c.mon.map(v => '<div class="mt '+(v[3]?"alarm":"goodv")+'"><div class="k">'+v[0]+'</div><div class="v">'+v[1]+'</div><div class="u">'+v[2]+'</div></div>').join("");
+  $("cas-feedback").innerHTML = "";
+  vraagCas(0);
+}
+function vraagCas(which){
+  const c = CAS[ci_];
+  const opts = which===0 ? PROBLEMEN : INTERVENTIES;
+  const juist = which===0 ? c.probleem : c.interventie;
+  $("cas-step").innerHTML = '<p class="prompt">'+(which===0?"Welk probleem heeft deze pati\u00EBnt?":"Welke interventiecategorie hoort daarbij?")+'</p><div class="opts" id="c-opts"></div><div class="miniresult" id="c-mini"></div>';
+  const letters = "ABCD";
+  opts.forEach((o,k) => {
+    const b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.innerHTML = '<span class="letter">'+letters[k]+'</span><span>'+o+'</span>';
+    b.addEventListener("click", () => antwoordCas(k, juist, which));
+    $("c-opts").appendChild(b);
+  });
+}
+function antwoordCas(k, juist, which){
+  const c = CAS[ci_];
+  const opts = document.querySelectorAll("#c-opts .opt");
+  opts.forEach(o => o.disabled = true);
+  opts[juist].classList.add("correct");
+  const goed = k===juist;
+  if(!goed) opts[k].classList.add("wrong");
+  csub[which] = goed?1:0;
+  $("c-mini").className = "miniresult "+(goed?"ok":"nok");
+  $("c-mini").textContent = goed?"Juist. +1 punt.":"Niet het beste antwoord \u2014 lees de uitleg.";
+  const laatste = ci_===CAS.length-1;
+  $("cas-feedback").innerHTML = '<div class="feedback"><h3>Uitleg</h3><p>'+(which===0?c.uitleg1:c.uitleg2)+'</p></div>'+
+    '<button class="btn" id="c-verder">'+(which===0?"Volgende vraag: welke interventie?":(laatste?"Naar je resultaat":"Volgende casus"))+'</button>';
+  $("c-verder").addEventListener("click", () => {
+    if(which===0){ $("cas-feedback").innerHTML=""; vraagCas(1); }
+    else {
+      cscores.push(csub[0]+csub[1]);
+      if(laatste){
+        $("cas-game").classList.add("hidden");
+        $("cas-score").textContent = cscores.reduce((a,b)=>a+b,0);
+        $("cas-rescases").innerHTML = CAS.map((x,k)=>'<p class="small" style="margin:4px 0"><strong>'+x.t+':</strong> '+cscores[k]+' van 2 punten</p>').join("");
+        $("cas-result").classList.remove("hidden");
+      } else { ci_++; renderCas(); window.scrollTo({top:0}); }
+    }
+  });
+}
+</script>
+</body>
+</html>

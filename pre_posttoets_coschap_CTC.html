@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pre-/posttoets — Coschap Cardiothoracale Chirurgie</title>
+<style>
+  :root{
+    --navy:#0d2240;
+    --navy-soft:#16345c;
+    --cyan:#0aa2dc;
+    --paper:#fdfdfb;
+    --ink:#22272e;
+    --slate:#5c6672;
+    --line:#dfe1dc;
+    --good:#1d7a4f;
+    --good-bg:#e9f4ee;
+    --bad:#b5232e;
+    --bad-bg:#faecec;
+    --sel:#eaf5fb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:"Archivo","Segoe UI",system-ui,-apple-system,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.55;
+    font-size:16px;
+  }
+  .band{
+    background:var(--navy);
+    color:#fff;
+    padding:44px 24px 40px;
+  }
+  .band-inner{max-width:760px;margin:0 auto}
+  .band h1{
+    font-size:clamp(26px,4.5vw,38px);
+    font-weight:800;
+    letter-spacing:-0.02em;
+    line-height:1.12;
+  }
+  .band .sub{
+    margin-top:10px;
+    color:#b9c6d8;
+    font-size:15px;
+    max-width:56ch;
+  }
+  .band .dept{
+    margin-top:22px;
+    padding-top:14px;
+    border-top:1px solid rgba(255,255,255,.18);
+    font-size:13.5px;
+    color:#8fa1b5;
+  }
+  main{max-width:760px;margin:0 auto;padding:32px 24px 72px}
+  .card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:28px;
+    margin-bottom:20px;
+  }
+  h2{font-size:20px;font-weight:700;letter-spacing:-0.01em;margin-bottom:12px}
+  p+p{margin-top:10px}
+  .muted{color:var(--slate)}
+  .small{font-size:14px}
+  label{display:block;font-weight:600;font-size:14px;margin:18px 0 6px}
+  input[type=text]{
+    width:100%;
+    padding:11px 13px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font:inherit;
+    background:#fff;
+  }
+  input[type=text]:focus{outline:2px solid var(--cyan);outline-offset:1px;border-color:var(--cyan)}
+  .mode{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+  .mode-opt{
+    display:flex;gap:12px;align-items:flex-start;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:12px 14px;
+    cursor:pointer;
+  }
+  .mode-opt input{margin-top:4px;accent-color:var(--navy)}
+  .mode-opt strong{font-size:15px}
+  .mode-opt .small{margin-top:2px}
+  .mode-opt:has(input:checked){border-color:var(--navy);background:var(--sel)}
+  button{
+    font:inherit;
+    cursor:pointer;
+    border:none;
+    border-radius:8px;
+  }
+  .btn-primary{
+    background:var(--navy);
+    color:#fff;
+    font-weight:700;
+    padding:13px 26px;
+    font-size:16px;
+  }
+  .btn-primary:hover{background:var(--navy-soft)}
+  .btn-primary:disabled{opacity:.35;cursor:not-allowed}
+  .btn-ghost{
+    background:#fff;
+    border:1px solid var(--line);
+    color:var(--ink);
+    font-weight:600;
+    padding:12px 22px;
+  }
+  .btn-ghost:hover{border-color:var(--slate)}
+  button:focus-visible,.mode-opt:focus-within{outline:2px solid var(--cyan);outline-offset:2px}
+  .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+
+  /* voortgang */
+  .progress{
+    display:flex;align-items:center;gap:14px;
+    margin-bottom:16px;
+  }
+  .progress .count{font-size:14px;font-weight:700;white-space:nowrap}
+  .bar{flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+  .bar>div{height:100%;background:var(--cyan);width:0;transition:width .25s ease}
+  .domain-chip{
+    display:inline-block;
+    font-size:13px;font-weight:700;
+    color:var(--navy);
+    background:var(--sel);
+    border:1px solid #cfe6f2;
+    border-radius:999px;
+    padding:3px 12px;
+    margin-bottom:14px;
+  }
+  .qtext{font-size:18px;font-weight:700;line-height:1.4;margin-bottom:18px}
+  .opts{display:flex;flex-direction:column;gap:10px}
+  .opt{
+    text-align:left;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:13px 15px;
+    font-size:15.5px;
+    line-height:1.45;
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .opt .letter{
+    flex:none;
+    width:26px;height:26px;
+    border-radius:50%;
+    border:1.5px solid var(--slate);
+    color:var(--slate);
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;
+    margin-top:1px;
+  }
+  .opt:hover{border-color:var(--navy)}
+  .opt.selected{border-color:var(--navy);background:var(--sel)}
+  .opt.selected .letter{background:var(--navy);border-color:var(--navy);color:#fff}
+  .opt.correct{border-color:var(--good);background:var(--good-bg)}
+  .opt.correct .letter{background:var(--good);border-color:var(--good);color:#fff}
+  .opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
+  .opt.wrong .letter{background:var(--bad);border-color:var(--bad);color:#fff}
+  .opt:disabled{cursor:default}
+  .explain{
+    margin-top:16px;
+    border-left:3px solid var(--cyan);
+    background:#f4fafd;
+    padding:14px 16px;
+    border-radius:0 8px 8px 0;
+    font-size:14.5px;
+  }
+  .explain strong{display:block;margin-bottom:4px;font-size:14px}
+
+  /* resultaat */
+  .score-line{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .score-big{font-size:52px;font-weight:800;letter-spacing:-0.03em;color:var(--navy)}
+  .score-of{font-size:18px;color:var(--slate)}
+  .dom-row{margin-top:14px}
+  .dom-head{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:5px}
+  .dom-bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+  .dom-bar>div{height:100%;background:var(--navy);border-radius:4px}
+  .review-item{border-top:1px solid var(--line);padding:16px 0}
+  .review-item:last-child{padding-bottom:0}
+  .review-q{font-weight:700;font-size:15px;display:flex;gap:10px}
+  .mark{flex:none;width:22px;height:22px;border-radius:50%;color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .mark.ok{background:var(--good)}
+  .mark.nok{background:var(--bad)}
+  .review-a{font-size:14px;margin-top:8px;padding-left:32px}
+  .review-a .you{color:var(--bad)}
+  .review-a .corr{color:var(--good);font-weight:600}
+  .review-a details{margin-top:6px}
+  .review-a summary{cursor:pointer;color:var(--cyan);font-weight:600;font-size:13.5px}
+  .review-a details p{margin-top:6px;color:var(--ink)}
+  .hidden{display:none}
+  footer{
+    max-width:760px;margin:0 auto;padding:0 24px 48px;
+    font-size:13px;color:var(--slate);
+  }
+  footer p+p{margin-top:6px}
+  @media (max-width:520px){
+    .card{padding:20px}
+    .band{padding:34px 20px 30px}
+  }
+  @media print{
+    .band{background:#fff;color:#000}
+    .btn-primary,.btn-ghost{display:none}
+  }
+
+  /* ── BKO-laag (didactische verantwoording) ── */
+  .bko-btn{margin-top:16px;background:transparent;border:1px solid rgba(255,255,255,.45);color:#dfe8f2;border-radius:999px;padding:7px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .bko-btn:hover{border-color:#fff;color:#fff}
+  .bko-btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  body:not(.bko-on) .bko-only{display:none}
+  .bko-tag{display:inline-block;background:#efecf9;color:#4f3fae;border:1px solid #d8d2f0;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;margin:0 6px 6px 0}
+  .bko-panel{background:#f8f6fd;border:1px solid #ddd6f3;border-radius:10px;padding:26px;margin-bottom:18px}
+  .bko-panel h2{color:#4f3fae}
+  .bko-panel .bko-intro{font-size:13.5px;color:#6b6394;margin-bottom:8px}
+  .bko-row{padding:12px 0;border-top:1px solid #e6e1f5}
+  .bko-row h3{font-size:15px;font-weight:700;margin-bottom:3px}
+  .bko-row p{font-size:14.5px}
+  .bko-refs{margin-top:12px;font-size:13px;color:#6b6394}
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="band-inner">
+    <h1>Pre-/posttoets kennis cardiothoracale chirurgie</h1>
+    <p class="sub">Vierentwintig korte casussen in zes domeinen — van CAG en kleppen tot longchirurgie en de IC. Je maakt dezelfde toets aan het begin en aan het einde van je coschap, zodat je je eigen groei kunt zien. De score telt niet mee voor je beoordeling.</p>
+    <p class="dept">Coschap Cardiothoracale Chirurgie · Maastricht UMC+</p>
+    <button class="bko-btn" id="btn-bko" aria-pressed="false">Didactische verantwoording tonen</button>
+  </div>
+</header>
+
+<main>
+  <section class="bko-panel bko-only" aria-label="Didactische verantwoording">
+    <h2>Didactische verantwoording</h2>
+    <p class="bko-intro">Deze laag is bedoeld voor de BKO-presentatie en het portfolio. Voor de co-assistent blijft hij verborgen; aan de toets zelf verandert niets.</p>
+    <div class="bko-row" style="border-top:none;padding-top:4px"><h3>Constructive alignment — Biggs &amp; Tang</h3><p>De zes toetsdomeinen zijn één-op-één de leerdoeldomeinen van het coschap. Dezelfde domeinen keren terug in de afvinklijst en in de leeractiviteiten (waaronder de CAG-simulatie): leerdoelen, werkvormen en toetsing wijzen naar hetzelfde punt.</p></div>
+    <div class="bko-row"><h3>Miller &amp; Bloom — toetsen op 'knows how'</h3><p>Elke vraag is een casusvignet uit de dagelijkse praktijk: de co-assistent past kennis toe in een klinische context (Miller: 'knows how'; Bloom: toepassen en analyseren) in plaats van feiten te reproduceren ('knows').</p></div>
+    <div class="bko-row"><h3>Formatief toetsen &amp; groeimeting</h3><p>De toets telt niet mee voor de beoordeling. De pretoets is een nulmeting en geeft 'feed up' (waar sta ik ten opzichte van de leerdoelen?); de identieke posttoets maakt individuele groei zichtbaar. Het gemiddelde pre/post-verschil is bovendien een succesindicator van het coschapherontwerp (ADDIE: evaluatiefase).</p></div>
+    <div class="bko-row"><h3>Feedback — Hattie &amp; Timperley</h3><p>Domeinscores geven feedback op taakniveau ('feed back'); de nabespreking per casus formuleert de vervolgstap ('feed forward'): fout beantwoorde casussen worden persoonlijke leerdoelen voor de rest van het coschap. De oefenmodus geeft directe feedback tijdens het leren.</p></div>
+    <div class="bko-row"><h3>Motivatie — Self-Determination Theory (Deci &amp; Ryan)</h3><p>Geen summatieve druk en een vrij te kiezen oefenmodus (autonomie); zichtbare groei tussen pre- en posttoets (competentie); het resultaat delen en nabespreken met de begeleider (verbondenheid).</p></div>
+    <div class="bko-row"><h3>Validiteit &amp; AI-bestendigheid</h3><p>Afname op vaste momenten onder begeleiding, zonder hulpmiddelen; de identieke vragenset houdt de groeimeting zuiver. Vignetten toetsen klinisch redeneren in context — geen antwoorden die tijdens de afname op te zoeken of te genereren zijn.</p></div>
+    <p class="bko-refs">Theoretische basis: Biggs &amp; Tang (constructive alignment); Miller (piramide van klinische competentie); Bloom (taxonomie); Hattie &amp; Timperley (feedbackmodel); Deci &amp; Ryan (Self-Determination Theory).</p>
+  </section>
+  <!-- START -->
+  <section id="screen-start" class="card">
+    <h2>Voordat je begint</h2>
+    <p>Elke vraag is een korte casus uit de praktijk van de afdeling, de OK en de IC. Beantwoord ze zonder hulpmiddelen — het gaat om een eerlijke nulmeting. Aan het einde zie je je totaalscore, je score per domein en bij elke casus de klinische redenering.</p>
+    <label for="naam">Naam (komt in het resultaatoverzicht)</label>
+    <input type="text" id="naam" placeholder="Voor- en achternaam" autocomplete="name">
+    <label>Afnamemoment</label>
+    <div class="mode" role="radiogroup" aria-label="Afnamemoment">
+      <label class="mode-opt"><input type="radio" name="moment" value="Pretoets" checked>
+        <span><strong>Pretoets (start coschap)</strong><br><span class="small muted">Feedback en uitleg pas aan het einde van de toets.</span></span></label>
+      <label class="mode-opt"><input type="radio" name="moment" value="Posttoets">
+        <span><strong>Posttoets (einde coschap)</strong><br><span class="small muted">Feedback en uitleg pas aan het einde van de toets.</span></span></label>
+      <label class="mode-opt"><input type="radio" name="moment" value="Oefenmodus">
+        <span><strong>Oefenmodus</strong><br><span class="small muted">Directe feedback en uitleg na iedere vraag — voor tussentijds oefenen.</span></span></label>
+    </div>
+    <div class="bko-only" style="margin-top:16px"><span class="bko-tag">Formatief — geen beoordelingsgevolgen</span><span class="bko-tag">Pretoets = nulmeting &amp; feed up</span></div>
+    <div class="actions">
+      <button class="btn-primary" id="btn-start">Start de toets</button>
+    </div>
+  </section>
+
+  <!-- VRAAG -->
+  <section id="screen-question" class="card hidden">
+    <div class="progress">
+      <span class="count" id="q-count">Vraag 1 van 24</span>
+      <div class="bar"><div id="q-bar"></div></div>
+    </div>
+    <span class="domain-chip" id="q-domain"></span>
+    <div class="bko-only" style="margin:6px 0 10px"><span class="bko-tag">Casusvignet — Miller: knows how</span><span class="bko-tag">Bloom: toepassen &amp; analyseren</span></div>
+    <p class="qtext" id="q-text"></p>
+    <div class="opts" id="q-opts"></div>
+    <div class="explain hidden" id="q-explain"></div>
+    <div class="actions">
+      <button class="btn-primary" id="btn-next" disabled>Volgende vraag</button>
+    </div>
+  </section>
+
+  <!-- RESULTAAT -->
+  <section id="screen-result" class="hidden">
+    <div class="card">
+      <h2 id="r-title">Je resultaat</h2>
+      <div class="score-line">
+        <span class="score-big" id="r-score">0</span>
+        <span class="score-of">van 24 goed (<span id="r-pct">0</span>%)</span>
+      </div>
+      <p class="muted small" id="r-meta"></p>
+      <div id="r-domains"></div>
+      <div class="bko-only" style="margin-top:12px"><span class="bko-tag">Domeinscores = feed back op taakniveau</span><span class="bko-tag">Pre → post = zichtbare groei (competentie)</span></div>
+      <div class="actions">
+        <button class="btn-ghost" id="btn-copy">Kopieer resultaat</button>
+        <button class="btn-ghost" id="btn-restart">Opnieuw maken</button>
+      </div>
+      <p class="small muted" id="copy-done" style="margin-top:10px"></p>
+    </div>
+    <div class="card">
+      <h2>Nabespreking per casus</h2>
+      <div class="bko-only"><span class="bko-tag">Nabespreking = feed forward: persoonlijke leerdoelen</span></div>
+      <p class="muted small" style="margin-bottom:8px">Open bij elke casus de uitleg — juist de casussen die je fout had, zijn je persoonlijke leerdoelen voor dit coschap.</p>
+      <div id="r-review"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Onderdeel van het inwerkprogramma coschap Cardiothoracale Chirurgie (BKO-project). Conceptversie voor onderwijsdoeleinden.</p>
+  <p>Getallen en beleidskeuzes volgen gangbare Europese richtlijnen en leerboeken; controleer bij twijfel altijd het lokale protocol en de actuele richtlijn.</p>
+</footer>
+
+<script>
+const QUESTIONS = [
+ // ── Domein: Anatomie & CAG ─────────────────────────────────────────────
+ {d:"Anatomie & CAG",
+  q:"Op de eerste hulp zie je een 55-jarige man met sinds twee uur drukkende pijn op de borst. Het ECG toont ST-elevatie in V1–V4. Hij gaat direct door naar de hartkatheterisatiekamer. Welke coronairarterie verwacht je als 'culprit'?",
+  o:["De rechter coronairarterie (RCA)",
+     "De LAD",
+     "De ramus circumflexus",
+     "De ramus descendens posterior"],
+  c:1,
+  e:"ST-elevatie in V1–V4 past bij voorwandischemie: het gebied van de LAD, die via septale takken het anterieure twee derde van het septum en via diagonalen de voorwand en apex verzorgt. Ter vergelijking: onderwand (II, III, aVF) hoort meestal bij de RCA, de laterale afleidingen (I, aVL, V5–V6) bij LCx of diagonalen. Een proximale LAD-occlusie heet niet voor niets de 'widow maker'."},
+ {d:"Anatomie & CAG",
+  q:"In een CAG-verslag lees je: 'De ramus descendens posterior ontspringt uit de ramus circumflexus.' Wat betekent dit voor deze patiënt?",
+  o:["Het systeem is rechtsdominant, zoals bij de meeste mensen",
+     "Het systeem is linksdominant: vrijwel de gehele linkerventrikel hangt aan het linker coronairsysteem",
+     "Er is sprake van codominantie",
+     "Dit is een verslagfout; de RDP komt altijd uit de RCA"],
+  c:1,
+  e:"Dominantie wordt bepaald door de herkomst van de RDP: uit de RCA bij ±85% (rechtsdominant), uit de LCx bij ±8% (linksdominant); de rest is codominant. Bij linksdominantie verzorgt het linkersysteem vrijwel het gehele linkerventrikelmyocard — hoofdstam- of LCx-lijden weegt dan extra zwaar, en dat telt mee in de revascularisatiestrategie."},
+ {d:"Anatomie & CAG",
+  q:"Tijdens een CAG draait de interventiecardioloog de C-boog naar LAO met caudale angulatie en zegt: 'Even de spin opzoeken.' Wat wil hij beoordelen?",
+  o:["De hoofdstam en de bifurcatie naar LAD en LCx",
+     "De distale RCA en de crux",
+     "De apex van de linkerventrikel",
+     "Eventuele veneuze bypassgrafts"],
+  c:0,
+  e:"De LAO-caudale projectie ('spider view') spreidt de hoofdstam, de proximale LAD en de proximale LCx uit elkaar en is dé projectie voor hoofdstam- en bifurcatielijden. Onthoud het principe: elk vat wordt in minimaal twee, bij voorkeur loodrecht op elkaar staande, richtingen afgebeeld."},
+ {d:"Anatomie & CAG",
+  q:"Een 61-jarige vrouw wordt gekatheteriseerd wegens atypische klachten; er is geen objectief ischemiebewijs. De CAG toont één afwijking: een 60%-stenose in de ramus circumflexus. De cardioloog twijfelt of deze laesie de klachten verklaart. Wat is de beste vervolgstap?",
+  o:["De CAG herhalen in een extra projectie",
+     "Een FFR-meting: een waarde van 0,80 of lager is significant",
+     "De visuele beoordeling volstaat; direct een stent plaatsen",
+     "Troponine bepalen direct na de CAG"],
+  c:1,
+  e:"Bij intermediaire stenosen (±40–90%) zonder ischemiebewijs is fysiologische meting de standaard: FFR ≤ 0,80 (of iFR ≤ 0,89) betekent hemodynamische significantie. Puur visuele beoordeling over- én onderschat de ernst regelmatig; stenten zonder bewezen significantie voegt niets toe (FAME-studies)."},
+
+ // ── Domein: Ischemische hartziekte ─────────────────────────────────────
+ {d:"Ischemische hartziekte",
+  q:"Op het hartteam wordt een 64-jarige man besproken: diabetes type 2 (insuline), stabiele angina CCS III ondanks drie middelen, drietakslijden met een SYNTAX-score van 34 en een redelijke linkerventrikelfunctie. Welke revascularisatiestrategie geniet de voorkeur?",
+  o:["PCI van alle laesies in één sessie",
+     "Uitsluitend optimale medicamenteuze therapie",
+     "CABG",
+     "Hybride revascularisatie als eerste keus"],
+  c:2,
+  e:"Bij diabetes en meertakslijden — zeker met een intermediaire of hoge SYNTAX-score — geeft CABG een overlevingsvoordeel en minder herhaalde revascularisaties dan PCI (o.a. de FREEDOM-trial). Dit is een klassieke klasse I-indicatie voor CABG; precies het soort afweging waarvoor het hartteam bestaat."},
+ {d:"Ischemische hartziekte",
+  q:"Zes weken na een CABG (LIMA op de LAD en twee veneuze grafts) vraagt een patiënt op de poli: 'Hoe lang gaan die omleidingen eigenlijk mee, dokter?' Wat is het beste antwoord over de LIMA-graft?",
+  o:["Na tien jaar is nog ongeveer 40% open",
+     "Na tien jaar is nog ongeveer 60% open",
+     "Na tien jaar is nog ongeveer 90% open",
+     "Een LIMA-graft gaat gegarandeerd levenslang mee"],
+  c:2,
+  e:"De LIMA op de LAD is na tien jaar in ±90% (85–95%) nog open — dé hoeksteen van de CABG en een belangrijke verklaring voor het overlevingsvoordeel. Veneuze grafts halen ±50–60% na tien jaar. Vertel er ook bij dat secundaire preventie (statine, stoppen met roken, bewegen) de grafts én de eigen vaten beschermt."},
+ {d:"Ischemische hartziekte",
+  q:"Een verder gezonde 57-jarige man heeft een geïsoleerde significante proximale LAD-stenose en houdt stabiele angina ondanks medicamenteuze therapie. Hij vraagt of hij 'gedotterd of geopereerd' wordt. Wat is juist?",
+  o:["Alleen CABG is een reële optie",
+     "Alleen PCI is een reële optie",
+     "Zowel PCI als chirurgie (LIMA-op-LAD, eventueel minimaal invasief) zijn verdedigbaar; het hartteam maakt de keuze",
+     "Revascularisatie is niet geïndiceerd"],
+  c:2,
+  e:"Bij geïsoleerd proximaal LAD-lijden zijn PCI en chirurgische revascularisatie (LIMA-LAD, o.a. via MIDCAB) beide richtlijnopties met vergelijkbare overleving. Anatomie, comorbiditeit en patiëntvoorkeur bepalen de keuze — een typische hartteambeslissing, en een mooi voorbeeld van gedeelde besluitvorming."},
+ {d:"Ischemische hartziekte",
+  q:"Een 49-jarige man presenteert zich twee uur na het ontstaan van een acuut onderwandinfarct (STEMI); de RCA blijkt subtotaal geoccludeerd. Wat is de behandeling van eerste keus?",
+  o:["Spoed-CABG",
+     "Primaire PCI",
+     "Trombolyse, gevolgd door electieve CAG na een week",
+     "Medicamenteuze behandeling en poliklinische fietstest"],
+  c:1,
+  e:"Bij een STEMI is primaire PCI de reperfusiestrategie van eerste keus ('time is muscle'). Spoed-CABG is gereserveerd voor situaties waarin PCI faalt of anatomisch niet kan, en voor mechanische complicaties zoals een ventrikelseptumruptuur, papillairspierruptuur of vrijewandruptuur."},
+
+ // ── Domein: Klep- & aortawortelchirurgie ───────────────────────────────
+ {d:"Klep- & aortawortelchirurgie",
+  q:"Een 76-jarige man met inspanningsgebonden duizeligheid en angina heeft op de echo: aortaklepoppervlak 0,8 cm², gemiddelde gradiënt 47 mmHg, piek-jetsnelheid 4,3 m/s, goede linkerventrikelfunctie. Hoe duid je dit en wat is de consequentie?",
+  o:["Matige aortaklepstenose; jaarlijkse echocontrole volstaat",
+     "Ernstige symptomatische aortaklepstenose; bespreking in het hartteam voor chirurgische klepvervanging of TAVI",
+     "Ernstige aortaklepstenose, maar pas ingrijpen zodra de linkerventrikelfunctie daalt",
+     "Low-flow-low-gradient aortaklepstenose"],
+  c:1,
+  e:"Alle drie de criteria voor ernstige AS zijn aanwezig: klepoppervlak < 1,0 cm², gemiddelde gradiënt ≥ 40 mmHg en piek-jetsnelheid ≥ 4,0 m/s. Ernstig én symptomatisch betekent een interventie-indicatie; wachten op LV-dysfunctie is wachten op schade. De keuze tussen chirurgische klepvervanging en TAVI maakt het hartteam op basis van leeftijd, operatierisico en anatomie. Low-flow-low-gradient speelt juist bij een lage flow met láge gradiënt en een slechte LV-functie."},
+ {d:"Klep- & aortawortelchirurgie",
+  q:"Een 79-jarige man met een ernstige aortaklepstenose is gisteren op straat gecollabeerd en zonder restverschijnselen bijgekomen. Op de poli vraagt hij: 'Kan die operatie niet nog een jaartje wachten?' Wat vertel je hem over zijn prognose?",
+  o:["Afwachten is prima; een aortaklepstenose is zelden gevaarlijk",
+     "Na een syncope is de gemiddelde overleving zonder ingreep ongeveer drie jaar; uitstel is riskant en interventie wordt geadviseerd",
+     "Met medicijnen kan de klepstenose nog verbeteren",
+     "De prognose is alleen slecht als er ook atriumfibrilleren is"],
+  c:1,
+  e:"Vanaf het moment dat een ernstige AS symptomatisch wordt, daalt de overleving sterk: klassiek gemiddeld ±5 jaar na het ontstaan van angina, ±3 jaar na syncope en ±2 jaar na hartfalen. Een syncope bij ernstige AS is dus een alarmsymptoom en een interventie-indicatie — chirurgisch of via TAVI, te bespreken in het hartteam."},
+ {d:"Klep- & aortawortelchirurgie",
+  q:"Op het hartteam wordt een 62-jarige vrouw besproken met een ernstige degeneratieve mitralisklepinsufficiëntie door een prolaps van het posterieure klepblad (P2) en toenemende inspanningsdyspnoe. Wat is de chirurgische voorkeursbehandeling?",
+  o:["Mechanische klepvervanging",
+     "Vervanging door een bioprothese",
+     "Mitralisklepplastiek (reparatie)",
+     "Afwachten tot de linkerventrikelfunctie daalt"],
+  c:2,
+  e:"Bij degeneratieve mitralisinsufficiëntie heeft klepreparatie de voorkeur boven vervanging: het subvalvulaire apparaat en daarmee de LV-functie blijven behouden, de operatiemortaliteit is lager en levenslange antistolling is niet verplicht. Een geïsoleerde P2-prolaps is bovendien technisch de meest 'dankbare' reparatie, met uitstekende duurzaamheid in ervaren centra."},
+ {d:"Klep- & aortawortelchirurgie",
+  q:"Een 41-jarige man met het marfansyndroom heeft een aortawortelaneurysma van 52 mm mét een ernstig lekkende, structureel afwijkende aortaklep; de coronairostia liggen in het aneurysma. Welke operatie is hier aangewezen?",
+  o:["Geïsoleerde aortaklepvervanging",
+     "Een supracoronaire buisprothese met behoud van de wortel",
+     "Een Bentall-procedure: composietgraft (klepprothese plus vaatprothese) met reïmplantatie van de coronairostia",
+     "TAVI"],
+  c:2,
+  e:"Zijn wortel én klep beide aangedaan, dan worden ze samen vervangen: de Bentall-procedure, waarbij de coronairostia als 'knoopjes' in de prothese worden gereïmplanteerd. Is de klep zelf goed, dan kan een klepsparende wortelvervanging (David-procedure); is de wortel normaal, dan volstaat een supracoronaire buis. Bij Marfan ligt de operatie-indicatie voor de wortel al bij ±50 mm (of ≥45 mm met risicofactoren) — hier is die dus ruimschoots bereikt."},
+
+ // ── Domein: Aortapathologie ────────────────────────────────────────────
+ {d:"Aortapathologie",
+  q:"Een 58-jarige hypertensieve man heeft acuut ontstane, scheurende pijn tussen de schouderbladen. De bloeddruk is rechts 175/95 en links 120/70 mmHg; er is een nieuw diastolisch geruis. CT-angiografie: dissectie vanaf de aortawortel tot voorbij de linker a. subclavia. Wat is het beleid?",
+  o:["Bloeddrukregulatie op de IC en CT-controle na 48 uur",
+     "Spoedoperatie",
+     "Electieve TEVAR binnen twee weken",
+     "Trombolyse"],
+  c:1,
+  e:"Zodra de aorta ascendens is aangedaan, is het een Stanford type A-dissectie: een chirurgisch spoedgeval. Onbehandeld stijgt de mortaliteit met ±1–2% per uur door tamponade, ruptuur of malperfusie. Het bloeddrukverschil tussen beide armen (polsdeficit) en het nieuwe diastolische geruis (acute aortaklepinsufficiëntie) passen precies in dat beeld."},
+ {d:"Aortapathologie",
+  q:"Een 63-jarige vrouw heeft een aortadissectie die begint distaal van de linker a. subclavia. Ze heeft geen tekenen van malperfusie of ruptuur en de pijn reageert op medicatie. Wat is het primaire beleid?",
+  o:["Spoedoperatie via sternotomie",
+     "Medicamenteuze therapie: strikte bloeddruk- en pijncontrole",
+     "Altijd acute TEVAR",
+     "Therapeutische antistolling met heparine"],
+  c:1,
+  e:"Een ongecompliceerde Stanford type B-dissectie (alleen de aorta descendens) wordt medicamenteus behandeld: streef systolisch ±100–120 mmHg, bètablokker als eerste keus, adequate pijnstilling. TEVAR is geïndiceerd bij complicaties: malperfusie, (dreigende) ruptuur, refractaire pijn of hypertensie, of snelle diametertoename."},
+ {d:"Aortapathologie",
+  q:"Bij een 67-jarige man wordt op een CT-scan wegens nierstenen bij toeval een aneurysma van de aorta ascendens van 56 mm gevonden. Hij heeft geen klachten, geen bindweefselziekte en een tricuspide aortaklep. Wat adviseer je?",
+  o:["Jaarlijkse CT-controle; opereren is pas nodig bij klachten",
+     "Electieve vervanging van de aorta ascendens: de operatiedrempel van ±55 mm is bereikt",
+     "Een spoedoperatie vannacht",
+     "Een bètablokker en verder geen controle"],
+  c:1,
+  e:"Voor een ascendensaneurysma zonder bindweefselziekte ligt de electieve operatiedrempel rond de 55 mm; lager (±50 mm of minder) bij bindweefselziekten, een bicuspide klep met risicofactoren, snelle groei (≥3 mm/jaar) of familiaire dissectie. Bij 56 mm zonder klachten is dit dus een electieve — geen spoed- — indicatie. Klachten afwachten is gevaarlijk: de eerste presentatie kan een dissectie of ruptuur zijn."},
+
+ // ── Domein: Longchirurgie ──────────────────────────────────────────────
+ {d:"Longchirurgie",
+  q:"Dag 3 na een VATS-lobectomie rechtsboven zie je tijdens de visite dat het waterslot van de thoraxdrain bij elke hoest bubbelt. De patiënt is niet benauwd en de X-thorax toont een ontplooide long. Wat is er aan de hand en wat doe je?",
+  o:["De drain is verstopt en moet worden vervangen",
+     "Er is een luchtlek uit het longparenchym: drain handhaven en conservatief beleid; de meeste lekken sluiten spontaan",
+     "Dit is een indicatie voor een spoedre-thoracotomie",
+     "De long is ontplooid, dus de drain kan direct worden verwijderd"],
+  c:1,
+  e:"Bubbels in het waterslot betekenen lucht uit de pleuraholte: een luchtlek uit het longparenchym, frequent na longresecties. Zolang de long ontplooid is en de patiënt stabiel, is het beleid conservatief: drain laten zitten en afwachten. Houdt het lek langer dan ±5 dagen aan, dan spreek je van een persisterend luchtlek ('prolonged air leak') en komen opties als een ambulant éénrichtingsventiel (Heimlich) of zelden chirurgie in beeld. De drain verwijderen bij een actief lek veroorzaakt een pneumothorax."},
+ {d:"Longchirurgie",
+  q:"Kort na het verwijderen van een thoraxdrain wordt een patiënt acuut benauwd en hypotensief. Links hoor je geen ademgeruis, de halsvenen zijn gestuwd en de trachea staat naar rechts verplaatst. Wat doe je als eerste?",
+  o:["Een X-thorax laten maken om de diagnose te bevestigen",
+     "Onmiddellijke naalddecompressie en daarna opnieuw een thoraxdrain",
+     "Een CT-thorax aanvragen",
+     "Eerst intuberen en de beeldvorming afwachten"],
+  c:1,
+  e:"Dit is een spanningspneumothorax: een klinische diagnose die je niet met beeldvorming mag vertragen. Decomprimeer onmiddellijk (klassiek tweede intercostaalruimte midclaviculair, of vierde/vijfde intercostaalruimte in de voorste axillairlijn) en plaats daarna een thoraxdrain. De combinatie acute dyspnoe, eenzijdig afwezig ademgeruis, gestuwde halsvenen, hypotensie en tracheadeviatie moet direct dit alarmbelletje laten rinkelen."},
+ {d:"Longchirurgie",
+  q:"Een 63-jarige vrouw met een perifeer gelegen stadium-I niet-kleincellig longcarcinoom en een goede longfunctie wordt besproken op de longoncologiebespreking. Wat is de chirurgische standaardbehandeling?",
+  o:["Een wigresectie van de tumor",
+     "Een anatomische (VATS-)lobectomie met mediastinale lymfeklierdissectie of -sampling",
+     "Een pneumonectomie",
+     "Chirurgie is obsoleet; alleen chemotherapie"],
+  c:1,
+  e:"De oncologische standaard bij een operabel stadium-I NSCLC is een anatomische lobectomie met mediastinale lymfeklierstadiëring, tegenwoordig bij voorkeur minimaal invasief (VATS of robot). Sublobaire resecties zijn gereserveerd voor beperkte longreserve of zeer kleine perifere tumoren; stereotactische radiotherapie is het alternatief voor inoperabele patiënten. Een pneumonectomie is alleen nodig bij centrale uitbreiding en heeft aanzienlijk meer morbiditeit."},
+ {d:"Longchirurgie",
+  q:"Dag 4 na een lobectomie: de thoraxdrain 'swingt' mee met de ademhaling, bubbelt niet meer en produceerde de afgelopen 24 uur 150 ml sereus vocht. De X-thorax toont een ontplooide long. Wat is de logische volgende stap?",
+  o:["De drain voor de zekerheid nog een week laten zitten",
+     "De drain kan worden verwijderd: geen luchtlek, lage sereuze productie en een ontplooide long",
+     "De drain op extra zuigkracht aansluiten",
+     "Een CT-thorax ter controle"],
+  c:1,
+  e:"De klassieke verwijdercriteria zijn: geen luchtlek (geen bubbels), productie onder de protocolgrens (vaak ±200–300 ml sereus per 24 uur) en een ontplooide long. Het 'swingen' bewijst dat de drain doorgankelijk is. Na verwijdering volgt meestal een controle-X-thorax volgens het lokale protocol. Onnodig lang laten zitten geeft pijn, immobiliteit en infectierisico."},
+
+ // ── Domein: Perioperatieve zorg & ECC ─────────────────────────────────
+ {d:"Perioperatieve zorg & ECC",
+  q:"Op de OK vraagt de perfusionist vlak voor het canuleren: 'Is de ACT al goed?' Welke streefwaarde hoort bij het aansluiten van de hart-longmachine?",
+  o:["APTT langer dan 60 seconden",
+     "INR boven 3,0",
+     "ACT langer dan 400–480 seconden",
+     "Anti-Xa tussen 0,5 en 1,0"],
+  c:2,
+  e:"Vóór canulatie wordt volledig gehepariniseerd (±300 IE/kg) met als doel een geactiveerde stollingstijd (ACT) van meer dan 400–480 seconden, om stolselvorming in het extracorporele circuit te voorkomen. Na decanulatie wordt de heparine geantagoneerd met protamine — en controleer je de ACT opnieuw."},
+ {d:"Perioperatieve zorg & ECC",
+  q:"Na het plaatsen van de aortaklem dient de perfusionist cardioplegie toe en staat het hart vrijwel direct stil. De chirurg vraagt jou waarom dit het myocard beschermt. Wat is het beste antwoord?",
+  o:["Het hart fibrilleert gecontroleerd en verbruikt daardoor minder zuurstof",
+     "De hoge kaliumconcentratie geeft een diastolisch arrest, waardoor het zuurstofverbruik van het myocard sterk daalt",
+     "Cardioplegie geeft maximale vasodilatatie van de coronairarteriën",
+     "Cardioplegie voorkomt vooral luchtembolieën"],
+  c:1,
+  e:"Een hoge kaliumconcentratie depolariseert de myocyten, waardoor het hart in diastole stilstaat. In combinatie met koeling daalt het zuurstofverbruik van het myocard met meer dan 90%, zodat het hart de ischemische periode (de aortaklemtijd) beschermd doorstaat. Myocardprotectie is een kernthema van elke hartoperatie — en van menig onderzoeksproject op de afdeling."},
+ {d:"Perioperatieve zorg & ECC",
+  q:"Een patiënt is op dag 2 na een CABG plots onregelmatig en tachycard (±140/min), maar hemodynamisch redelijk stabiel. Wat is de meest waarschijnlijke diagnose?",
+  o:["Ventrikeltachycardie",
+     "Postoperatief atriumfibrilleren",
+     "Sinustachycardie door pijn",
+     "Derdegraads AV-blok"],
+  c:1,
+  e:"Postoperatief atriumfibrilleren treedt op bij ±30% van de patiënten na hartchirurgie, met een piek op dag 2–3. Beleid: corrigeer elektrolyten (kalium > 4,5 mmol/l; magnesium), frequentie- of ritmecontrole (bètablokker, amiodaron) en beoordeel de indicatie voor antistolling bij persisteren. Meestal is het self-limiting — maar controleer altijd eerst of de patiënt er hemodynamisch niet onder lijdt."},
+ {d:"Perioperatieve zorg & ECC",
+  q:"Op de IC stopt bij een patiënt vier uur na hartchirurgie abrupt de tot dan toe forse drainproductie. Aansluitend daalt de bloeddruk, stijgt de centraalveneuze druk en daalt de diurese. Waaraan denk je als eerste?",
+  o:["Longembolie",
+     "Harttamponade door stolselvorming",
+     "Sepsis",
+     "Decompensatie door nieuw atriumfibrilleren"],
+  c:1,
+  e:"De klassieke valkuil: een 'stille' drain sluit een nabloeding niet uit — de drain kan verstopt zijn terwijl het bloed zich in het pericard ophoopt. Acuut stoppende drainproductie plus obstructieve shock (hypotensie, hoge CVD, oligurie) is tamponade tot het tegendeel bewezen is: spoedecho en laagdrempelig re-sternotomie."},
+ {d:"Perioperatieve zorg & ECC",
+  q:"Tijdens de avondvisite op de IC zie je een patiënt, vier uur na een CABG, die in het derde én vierde uur telkens ±250 ml bloederige drainproductie had. De stolling is inmiddels gecorrigeerd. Wat is het juiste beleid?",
+  o:["Afwachten; drainproductie stopt meestal vanzelf",
+     "Tijdig overleggen met de chirurg: dit is een indicatie om re-exploratie te overwegen",
+     "Alleen extra protamine toedienen",
+     "De drains verwijderen, zodat het bloeden zichzelf tamponeert"],
+  c:1,
+  e:"Gangbare vuistregels (protocolafhankelijk): ± meer dan 400 ml in het eerste uur, meer dan 200 ml per uur gedurende 2–4 uur, of aanhoudend meer dan 100 ml per uur — zeker als de stolling al gecorrigeerd is, want dan is chirurgisch bloeden waarschijnlijker. Wachten tot de patiënt instabiel wordt, is te laat; en drains verwijderen is levensgevaarlijk (tamponade). Overleg dus tijdig met de chirurg."}
+];
+
+const $ = id => document.getElementById(id);
+let state = null;
+
+function startQuiz(){
+  state = {
+    name: $("naam").value.trim() || "Onbekend",
+    moment: document.querySelector('input[name="moment"]:checked').value,
+    idx: 0,
+    answers: new Array(QUESTIONS.length).fill(null),
+    locked: false
+  };
+  state.practice = state.moment === "Oefenmodus";
+  $("screen-start").classList.add("hidden");
+  $("screen-result").classList.add("hidden");
+  $("screen-question").classList.remove("hidden");
+  renderQuestion();
+  window.scrollTo({top:0});
+}
+
+function renderQuestion(){
+  const i = state.idx, Q = QUESTIONS[i];
+  state.locked = false;
+  $("q-count").textContent = "Vraag " + (i+1) + " van " + QUESTIONS.length;
+  $("q-bar").style.width = ((i)/QUESTIONS.length*100) + "%";
+  $("q-domain").textContent = Q.d;
+  $("q-text").textContent = Q.q;
+  $("q-explain").classList.add("hidden");
+  $("q-explain").innerHTML = "";
+  const box = $("q-opts");
+  box.innerHTML = "";
+  Q.o.forEach((opt, k) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "opt";
+    b.innerHTML = '<span class="letter">' + "ABCD"[k] + '</span><span>' + opt + '</span>';
+    b.addEventListener("click", () => chooseOption(k));
+    box.appendChild(b);
+  });
+  const next = $("btn-next");
+  next.disabled = true;
+  next.textContent = (i === QUESTIONS.length-1) ? "Naar het resultaat" : "Volgende vraag";
+}
+
+function chooseOption(k){
+  const Q = QUESTIONS[state.idx];
+  const opts = Array.from($("q-opts").children);
+  if(state.practice){
+    if(state.locked) return;
+    state.locked = true;
+    state.answers[state.idx] = k;
+    opts.forEach((b,j) => {
+      b.disabled = true;
+      if(j === Q.c) b.classList.add("correct");
+      else if(j === k) b.classList.add("wrong");
+    });
+    const ex = $("q-explain");
+    ex.innerHTML = "<strong>" + (k === Q.c ? "Goed." : "Niet juist — het goede antwoord is " + "ABCD"[Q.c] + ".") + "</strong>" + Q.e;
+    ex.classList.remove("hidden");
+    $("btn-next").disabled = false;
+  } else {
+    state.answers[state.idx] = k;
+    opts.forEach((b,j) => b.classList.toggle("selected", j === k));
+    $("btn-next").disabled = false;
+  }
+}
+
+function nextQuestion(){
+  if(state.answers[state.idx] === null) return;
+  if(state.idx < QUESTIONS.length - 1){
+    state.idx++;
+    renderQuestion();
+    window.scrollTo({top:0});
+  } else {
+    showResult();
+  }
+}
+
+function showResult(){
+  $("screen-question").classList.add("hidden");
+  $("screen-result").classList.remove("hidden");
+  window.scrollTo({top:0});
+
+  const total = QUESTIONS.reduce((s,Q,i) => s + (state.answers[i] === Q.c ? 1 : 0), 0);
+  const pct = Math.round(total / QUESTIONS.length * 100);
+  $("r-title").textContent = state.moment + " — resultaat";
+  $("r-score").textContent = total;
+  $("r-pct").textContent = pct;
+  const now = new Date();
+  $("r-meta").textContent = state.name + " · " + now.toLocaleDateString("nl-NL", {day:"numeric", month:"long", year:"numeric"});
+
+  // domeinscores
+  const doms = {};
+  QUESTIONS.forEach((Q,i) => {
+    doms[Q.d] = doms[Q.d] || {ok:0, n:0};
+    doms[Q.d].n++;
+    if(state.answers[i] === Q.c) doms[Q.d].ok++;
+  });
+  const dbox = $("r-domains");
+  dbox.innerHTML = "";
+  Object.keys(doms).forEach(d => {
+    const {ok,n} = doms[d];
+    const row = document.createElement("div");
+    row.className = "dom-row";
+    row.innerHTML = '<div class="dom-head"><span>' + d + '</span><span>' + ok + ' / ' + n + '</span></div>' +
+                    '<div class="dom-bar"><div style="width:' + (ok/n*100) + '%"></div></div>';
+    dbox.appendChild(row);
+  });
+
+  // review
+  const rev = $("r-review");
+  rev.innerHTML = "";
+  QUESTIONS.forEach((Q,i) => {
+    const a = state.answers[i];
+    const ok = a === Q.c;
+    const item = document.createElement("div");
+    item.className = "review-item";
+    let body = '<div class="review-q"><span class="mark ' + (ok?'ok':'nok') + '">' + (ok?'✓':'✗') + '</span><span>' + (i+1) + '. ' + Q.q + '</span></div>';
+    body += '<div class="review-a">';
+    if(!ok) body += '<span class="you">Jouw antwoord: ' + "ABCD"[a] + '. ' + Q.o[a] + '</span><br>';
+    body += '<span class="corr">Juist: ' + "ABCD"[Q.c] + '. ' + Q.o[Q.c] + '</span>';
+    body += '<details><summary>Uitleg</summary><p>' + Q.e + '</p></details></div>';
+    item.innerHTML = body;
+    rev.appendChild(item);
+  });
+
+  // kopieertekst
+  state.copyText =
+    "Pre-/posttoets coschap Cardiothoracale Chirurgie (MUMC+)\n" +
+    "Naam: " + state.name + "\nMoment: " + state.moment + "\nDatum: " + now.toLocaleDateString("nl-NL") + "\n" +
+    "Totaalscore: " + total + "/" + QUESTIONS.length + " (" + pct + "%)\n" +
+    Object.keys(doms).map(d => "  " + d + ": " + doms[d].ok + "/" + doms[d].n).join("\n");
+}
+
+function copyResult(){
+  const done = $("copy-done");
+  const finish = () => { done.textContent = "Resultaat gekopieerd — plak het in je afvinklijst of mail het naar je begeleider."; };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(state.copyText).then(finish).catch(() => fallbackCopy(finish));
+  } else fallbackCopy(finish);
+}
+function fallbackCopy(cb){
+  const t = document.createElement("textarea");
+  t.value = state.copyText;
+  document.body.appendChild(t);
+  t.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  document.body.removeChild(t);
+  cb();
+}
+
+
+const bkoBtn = document.getElementById("btn-bko");
+bkoBtn.addEventListener("click", () => {
+  const on = document.body.classList.toggle("bko-on");
+  bkoBtn.textContent = on ? "Didactische verantwoording verbergen" : "Didactische verantwoording tonen";
+  bkoBtn.setAttribute("aria-pressed", on ? "true" : "false");
+});
+$("btn-start").addEventListener("click", startQuiz);
+$("btn-next").addEventListener("click", nextQuestion);
+$("btn-copy").addEventListener("click", copyResult);
+$("btn-restart").addEventListener("click", () => {
+  $("screen-result").classList.add("hidden");
+  $("screen-start").classList.remove("hidden");
+  window.scrollTo({top:0});
+});
+</script>
+</body>
+</html>

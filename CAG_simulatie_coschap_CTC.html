@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAG-simulatie — Coschap Cardiothoracale Chirurgie</title>
+<style>
+  :root{
+    --navy:#0d2240;
+    --navy-soft:#16345c;
+    --cyan:#0aa2dc;
+    --paper:#fdfdfb;
+    --ink:#22272e;
+    --slate:#5c6672;
+    --line:#dfe1dc;
+    --good:#1d7a4f;
+    --good-bg:#e9f4ee;
+    --bad:#b5232e;
+    --bad-bg:#faecec;
+    --sel:#eaf5fb;
+    --viewer:#0e1116;
+    --vessel:#dde3ea;
+    --vessel-dim:#8d99a6;
+    --ring:#ff5a4e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Archivo","Segoe UI",system-ui,-apple-system,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.55;
+    font-size:16px;
+  }
+  .band{background:var(--navy);color:#fff;padding:40px 24px 34px}
+  .band-inner{max-width:980px;margin:0 auto}
+  .band h1{font-size:clamp(25px,4vw,36px);font-weight:800;letter-spacing:-0.02em;line-height:1.12}
+  .band .sub{margin-top:10px;color:#b9c6d8;font-size:15px;max-width:62ch}
+  .band .dept{margin-top:20px;padding-top:12px;border-top:1px solid rgba(255,255,255,.18);font-size:13.5px;color:#8fa1b5}
+
+  main{max-width:980px;margin:0 auto;padding:26px 24px 70px}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .tab{
+    font:inherit;font-weight:700;font-size:15px;
+    padding:10px 18px;border-radius:999px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;
+  }
+  .tab[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+  .tab:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:26px;margin-bottom:18px}
+  h2{font-size:20px;font-weight:700;margin-bottom:10px;letter-spacing:-0.01em}
+  h3{font-size:16px;font-weight:700;margin-bottom:6px}
+  p+p{margin-top:10px}
+  .muted{color:var(--slate)}
+  .small{font-size:14px}
+  ul.plain{padding-left:20px}
+  ul.plain li{margin:5px 0}
+
+  /* systematiek */
+  .steps{counter-reset:s;display:flex;flex-direction:column;gap:0}
+  .step{
+    counter-increment:s;
+    display:flex;gap:16px;
+    padding:16px 0;
+    border-top:1px solid var(--line);
+  }
+  .step:first-child{border-top:none;padding-top:4px}
+  .step::before{
+    content:counter(s);
+    flex:none;width:30px;height:30px;border-radius:50%;
+    background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:14px;margin-top:2px;
+  }
+  .step p{margin-top:3px}
+
+  /* viewers */
+  .viewers{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:14px 0}
+  .viewer{
+    background:var(--viewer);
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid #1d2530;
+  }
+  .viewer-cap{
+    color:#93a2b4;font-size:12.5px;
+    padding:9px 14px;border-bottom:1px solid #1d2530;
+    display:flex;justify-content:space-between;gap:10px;
+  }
+  .viewer svg{display:block;width:100%;height:auto}
+  .vessel{fill:none;stroke:var(--vessel);stroke-linecap:round}
+  .vessel.decor{stroke:var(--vessel-dim)}
+  .vessel.faded{opacity:.28;stroke-dasharray:4 6}
+  .vessel.hov{stroke:var(--cyan)}
+  .vessel.seg-good{stroke:#41c98a}
+  .vessel.seg-bad{stroke:var(--ring)}
+  .hit{fill:none;stroke:transparent;stroke-width:20;stroke-linecap:round}
+  .hit.clickable{cursor:pointer}
+  .hit:focus-visible{outline:none}
+  .hit:focus-visible + .focusring{opacity:1}
+  .aorta{fill:none;stroke:#5b6877;stroke-linecap:round}
+  .svg-label{fill:#7f93a8;font-size:12.5px;font-family:inherit}
+  .ring{fill:none;stroke:var(--ring);stroke-width:2;stroke-dasharray:4 4;opacity:0}
+  .ring.show{opacity:1}
+  @media (prefers-reduced-motion: no-preference){
+    .ring.show{animation:pulse 1.6s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.95}50%{opacity:.35}}
+  }
+
+  /* casus */
+  .dots{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+  .dot{width:12px;height:12px;border-radius:50%;background:var(--line)}
+  .dot.now{background:var(--navy);outline:3px solid var(--sel)}
+  .dot.done{background:var(--good)}
+  .dots .lbl{font-size:13.5px;font-weight:700;color:var(--slate);margin-left:6px}
+  .vignette{
+    border-left:3px solid var(--navy);
+    background:#f6f7f9;
+    padding:14px 16px;border-radius:0 8px 8px 0;
+    font-size:15px;
+  }
+  .prompt{font-size:16.5px;font-weight:700;margin:16px 0 12px}
+  .opts{display:flex;flex-direction:column;gap:10px}
+  .opt{
+    text-align:left;background:#fff;border:1px solid var(--line);border-radius:8px;
+    padding:12px 15px;font:inherit;font-size:15px;line-height:1.45;cursor:pointer;
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .opt .letter{
+    flex:none;width:25px;height:25px;border-radius:50%;
+    border:1.5px solid var(--slate);color:var(--slate);
+    display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;margin-top:1px;
+  }
+  .opt:hover{border-color:var(--navy)}
+  .opt.correct{border-color:var(--good);background:var(--good-bg)}
+  .opt.correct .letter{background:var(--good);border-color:var(--good);color:#fff}
+  .opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
+  .opt.wrong .letter{background:var(--bad);border-color:var(--bad);color:#fff}
+  .opt:disabled{cursor:default}
+  .opt:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .miniresult{margin-top:12px;font-size:14.5px;font-weight:600}
+  .miniresult.ok{color:var(--good)}
+  .miniresult.nok{color:var(--bad)}
+
+  .feedback{
+    border-left:3px solid var(--cyan);
+    background:#f4fafd;
+    padding:16px 18px;border-radius:0 8px 8px 0;
+    margin-top:18px;font-size:14.8px;
+  }
+  .feedback h3{margin-bottom:8px}
+  .feedback ul{padding-left:20px;margin-top:8px}
+  .feedback li{margin:4px 0}
+
+  button.btn{
+    font:inherit;font-weight:700;cursor:pointer;border:none;border-radius:8px;
+    background:var(--navy);color:#fff;padding:12px 24px;font-size:15.5px;margin-top:18px;
+  }
+  button.btn:hover{background:var(--navy-soft)}
+  button.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--slate)}
+
+  /* anatomie infopaneel */
+  .info{
+    border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;background:#fff;min-height:96px;
+  }
+  .info h3{color:var(--navy)}
+  .info .row{font-size:14.5px;margin-top:4px}
+  .info .row strong{font-weight:700}
+
+  /* eindresultaat */
+  .score-line{display:flex;align-items:baseline;gap:12px;margin:4px 0 12px}
+  .score-big{font-size:48px;font-weight:800;letter-spacing:-0.03em;color:var(--navy)}
+  .case-row{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:9px 0;font-size:14.5px}
+  .case-row:first-of-type{border-top:none}
+
+  .hidden{display:none}
+  footer{max-width:980px;margin:0 auto;padding:0 24px 46px;font-size:13px;color:var(--slate)}
+  footer p+p{margin-top:6px}
+  @media (max-width:560px){.card{padding:18px}.band{padding:32px 20px 26px}}
+
+  /* ── BKO-laag (didactische verantwoording) ── */
+  .bko-btn{margin-top:16px;background:transparent;border:1px solid rgba(255,255,255,.45);color:#dfe8f2;border-radius:999px;padding:7px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .bko-btn:hover{border-color:#fff;color:#fff}
+  .bko-btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  body:not(.bko-on) .bko-only{display:none}
+  .bko-tag{display:inline-block;background:#efecf9;color:#4f3fae;border:1px solid #d8d2f0;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;margin:0 6px 6px 0}
+  .bko-panel{background:#f8f6fd;border:1px solid #ddd6f3;border-radius:10px;padding:26px;margin-bottom:18px}
+  .bko-panel h2{color:#4f3fae}
+  .bko-panel .bko-intro{font-size:13.5px;color:#6b6394;margin-bottom:8px}
+  .bko-row{padding:12px 0;border-top:1px solid #e6e1f5}
+  .bko-row h3{font-size:15px;font-weight:700;margin-bottom:3px}
+  .bko-row p{font-size:14.5px}
+  .bko-refs{margin-top:12px;font-size:13px;color:#6b6394}
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="band-inner">
+    <h1>CAG-simulatie: leer coronairangiogrammen systematisch lezen</h1>
+    <p class="sub">Vijf casussen op een schematische angioviewer. Je herkent de vaten, vindt de stenose, schat de ernst en formuleert een behandeladvies — precies de stappen die je daarna aan het bed en in het hartteam nodig hebt.</p>
+    <p class="dept">Coschap Cardiothoracale Chirurgie · Maastricht UMC+ · schematische weergave, geen echte angiografiebeelden</p>
+    <button class="bko-btn" id="btn-bko" aria-pressed="false">Didactische verantwoording tonen</button>
+  </div>
+</header>
+
+<main>
+  <section class="bko-panel bko-only" aria-label="Didactische verantwoording">
+    <h2>Didactische verantwoording</h2>
+    <p class="bko-intro">Deze laag is bedoeld voor de BKO-presentatie en het portfolio. Voor de co-assistent blijft hij verborgen; aan de simulatie zelf verandert niets.</p>
+    <div class="bko-row" style="border-top:none;padding-top:4px"><h3>4C/ID — Van Merriënboer</h3><p>De vier componenten zijn letterlijk terug te zien: de casussen zijn leertaken (hele, authentieke taken), de anatomiemodus is de ondersteunende informatie, het zesstappenplan is de procedurele (just-in-time) informatie, en de simulatie als geheel is deeltaakoefening voorafgaand aan het beoordelen van echte CAG&#39;s op de afdeling.</p></div>
+    <div class="bko-row"><h3>Variatie in leertaken</h3><p>De vijf casussen verschillen in vat, ernst, urgentie én uitkomst — waaronder één casus waarin juist níet behandelen het goede antwoord is. Die variatie voorkomt aangeleerde trucjes en bevordert transfer naar nieuwe patiënten.</p></div>
+    <div class="bko-row"><h3>Cognitive apprenticeship &amp; scaffolding</h3><p>Modeling (het expliciete zesstappenplan van de expert), coaching (directe feedback per stap) en fading (van anatomie verkennen, via casussen met afnemende steun, naar drie echte CAG&#39;s hardop beschrijven met de begeleider).</p></div>
+    <div class="bko-row"><h3>Constructive alignment — Biggs &amp; Tang</h3><p>De simulatie traint exact het leerdoel &#39;een coronairangiogram systematisch beoordelen en een behandeladvies formuleren&#39;, dat ook in de pre-/posttoets (domein Anatomie &amp; CAG) en in de afvinklijst van het coschap terugkeert.</p></div>
+    <div class="bko-row"><h3>Feedback — Hattie &amp; Timperley</h3><p>Na elke stap volgt feedback op taak- en procesniveau; de kernpunten per casus zijn de feed forward. De eindopdracht koppelt de feedbackcyclus aan de werkplek.</p></div>
+    <div class="bko-row"><h3>Motivatie — Self-Determination Theory (Deci &amp; Ryan)</h3><p>Eigen tempo en volgorde via de tabbladen (autonomie), punten en direct zichtbaar succes per casus (competentie), en de hartteam-framing plus de afsluitende opdracht met de begeleider (verbondenheid).</p></div>
+    <p class="bko-refs">Theoretische basis: Van Merriënboer &amp; Kirschner (4C/ID); Collins e.a. (cognitive apprenticeship); Biggs &amp; Tang (constructive alignment); Hattie &amp; Timperley (feedbackmodel); Deci &amp; Ryan (Self-Determination Theory).</p>
+  </section>
+  <div class="tabs" role="tablist" aria-label="Onderdelen">
+    <button class="tab" id="tab-sys" role="tab" aria-selected="true">1 · Systematiek</button>
+    <button class="tab" id="tab-ana" role="tab" aria-selected="false">2 · Anatomie verkennen</button>
+    <button class="tab" id="tab-cas" role="tab" aria-selected="false">3 · Casussen</button>
+    <button class="tab" id="tab-zoek" role="tab" aria-selected="false">4 · Waar zit de afwijking?</button>
+  </div>
+
+  <!-- SYSTEMATIEK -->
+  <section id="panel-sys">
+    <div class="card">
+      <h2>Zo lees je elk coronairangiogram</h2>
+      <p class="muted small" style="margin-bottom:14px">Dit zesstappenplan is je vaste werkinstructie. Gebruik het hier in de simulatie, en daarna hardop bij elke echte CAG die je op de afdeling, de hartkatheterisatiekamer of de OK ziet.</p>
+      <div class="bko-only" style="margin-bottom:12px"><span class="bko-tag">4C/ID: procedurele (just-in-time) informatie</span><span class="bko-tag">Cognitive apprenticeship: modeling</span></div>
+      <div class="steps">
+        <div class="step"><div><h3>Controleer de basis</h3><p class="small">Welke projecties zijn er gemaakt? Is de contrastvulling goed en staat de katheter netjes in het ostium? Elk vat hoort in minimaal twee richtingen te zijn afgebeeld.</p></div></div>
+        <div class="step"><div><h3>Bepaal de dominantie</h3><p class="small">Waar komt de ramus descendens posterior (RDP) vandaan? Uit de RCA bij ±85% (rechtsdominant), uit de LCx bij ±8% (linksdominant). Dominantie bepaalt hoeveel myocard er per vat op het spel staat.</p></div></div>
+        <div class="step"><div><h3>Volg elk vat van ostium tot distaal</h3><p class="small">Vaste volgorde: hoofdstam → LAD met diagonalen en septalen → LCx met marginalen → RCA met RDP en posterolaterale takken. Zo voorkom je dat je stopt na de eerste afwijking ('satisfaction of search').</p></div></div>
+        <div class="step"><div><h3>Beschrijf elke laesie</h3><p class="small">Benoem het segment (proximaal/mid/distaal), de geschatte diameterstenose in procenten, de lengte, en of er kalk of trombus zichtbaar is.</p></div></div>
+        <div class="step"><div><h3>Beoordeel de flow</h3><p class="small">TIMI 0 = occlusie, TIMI 1 = contrast passeert zonder distale vulling, TIMI 2 = trage maar volledige vulling, TIMI 3 = normale flow. Kijk ook naar collateralen naar afgesloten vaten.</p></div></div>
+        <div class="step"><div><h3>Integreer met de kliniek</h3><p class="small">Koppel het beeld aan klachten, ECG en ischemiebewijs. Twijfel over significantie (±40–90%)? Denk aan FFR/iFR. Sluit af met een advies zoals je dat in het hartteam zou formuleren.</p></div></div>
+      </div>
+      <button class="btn" id="btn-to-ana">Verder naar de anatomie</button>
+    </div>
+  </section>
+
+  <!-- ANATOMIE -->
+  <section id="panel-ana" class="hidden">
+    <div class="card">
+      <h2>Anatomie verkennen</h2>
+      <p class="muted small">Beweeg over (of tik op) een vat om de naam, het verzorgingsgebied en de bijbehorende ECG-afleidingen te zien. Deze kennis heb je in de casussen nodig.</p>
+      <div class="bko-only" style="margin-top:10px"><span class="bko-tag">4C/ID: ondersteunende informatie</span></div>
+      <div class="viewers">
+        <div class="viewer"><div class="viewer-cap"><span>Linker coronairsysteem</span><span>schematisch</span></div><div id="ana-left"></div></div>
+        <div class="viewer"><div class="viewer-cap"><span>Rechter coronairsysteem</span><span>schematisch</span></div><div id="ana-right"></div></div>
+      </div>
+      <div class="info" id="ana-info">
+        <h3>Kies een vat</h3>
+        <p class="small muted">De informatie verschijnt hier.</p>
+      </div>
+      <button class="btn" id="btn-to-cas">Start de casussen</button>
+    </div>
+  </section>
+
+  <!-- CASUSSEN -->
+  <section id="panel-cas" class="hidden">
+    <div class="card" id="case-card">
+      <div class="dots" id="case-dots"></div>
+      <h2 id="case-title"></h2>
+      <div class="bko-only" style="margin-bottom:8px"><span class="bko-tag">4C/ID: leertaak — hele, authentieke taak</span><span class="bko-tag">Directe feedback per stap (Hattie &amp; Timperley)</span></div>
+      <p class="vignette" id="case-vignette"></p>
+      <div class="viewers" id="case-viewers"></div>
+      <div id="case-step"></div>
+      <div id="case-feedback"></div>
+    </div>
+    <div class="card hidden" id="result-card">
+      <h2>Je resultaat</h2>
+      <div class="score-line"><span class="score-big" id="res-score">0</span><span class="muted">van 15 punten</span></div>
+      <div id="res-cases"></div>
+      <div class="feedback" style="margin-top:16px">
+        <h3>En nu de echte beelden</h3>
+        <p>Deze simulatie is een deeltaakoefening. De volgende stap uit je afvinklijst: bekijk tijdens je coschap minimaal drie echte CAG's samen met je begeleider en beschrijf ze hardop volgens het zesstappenplan — inclusief een behandeladvies alsof je in het hartteam zit.</p>
+      </div>
+      <div class="bko-only" style="margin-top:14px"><span class="bko-tag">Fading &amp; transfer: van simulatie naar echte CAG&#39;s</span></div>
+      <button class="btn ghost" id="btn-again">Casussen opnieuw doen</button>
+    </div>
+  </section>
+
+  <!-- WAAR ZIT DE AFWIJKING -->
+  <section id="panel-zoek" class="hidden">
+    <div class="card">
+      <h2>Waar zit de afwijking?</h2>
+      <div class="bko-only" style="margin-bottom:8px"><span class="bko-tag">4C/ID: taakklasse-variatie &mdash; zelfde vaardigheid, nieuwe context</span><span class="bko-tag">Retrieval practice (Roediger &amp; Karpicke)</span><span class="bko-tag">Feedback per poging: feed up / back / forward (Hattie &amp; Timperley)</span></div>
+      <p>Zes korte casussen, ge&iuml;nspireerd op klassieke casu&iuml;stiek uit de literatuur. Je krijgt het klinische verhaal en het ECG &mdash; jij klikt in het angiogram op de plek van de afwijking. Kijk ook goed naar het beeld zelf: de vernauwing (of het afbreken van de contrastvulling) is erin getekend.</p>
+      <p class="small muted">Eerste klik goed = 2 punten, tweede klik = 1 punt. Na je antwoord verschijnt &mdash; als dat is klaargezet &mdash; het <strong>echte angiografiebeeld</strong> bij de casus, met bronvermelding.</p>
+      <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">Echte beelden toevoegen (voor de beheerder)</summary>
+        <div class="small" style="margin-top:8px">
+          <p><strong>Waarom niet zomaar figuren uit een tijdschrift?</strong> Publicatie heft het auteursrecht niet op; bronvermelding voorkomt plagiaat maar geeft geen gebruiksrecht. Gebruik daarom beelden met een <strong>open licentie (CC&nbsp;BY)</strong> &mdash; bijvoorbeeld uit European Heart Journal &ndash; Case Reports, Journal of Medical Case Reports, Cureus of Wikimedia Commons &mdash; of eigen, volledig geanonimiseerd afdelingsmateriaal (conform lokaal beleid/AVG).</p>
+          <p><strong>Zo voeg je ze toe:</strong> maak naast dit bestand een map <code>beelden/</code> met <code>zoekcasus1.jpg</code> t/m <code>zoekcasus6.jpg</code> (of .png). Ze worden automatisch getoond na het antwoord, m&eacute;t de reeds ingevulde bronvermelding. Zonder bestand toont de casus alleen het schema &mdash; niets gaat kapot.</p>
+          <p><strong>Voorgeselecteerde CC&nbsp;BY-artikelen (download de angiografiefiguur en sla op onder de genoemde naam):</strong></p>
+          <ol style="margin:6px 0 10px 18px;padding:0">
+            <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10794046/" target="_blank" rel="noopener">Kim e.a., Cureus 2023 (wellens, prox. LAD — Fig. 2)</a> → zoekcasus1.jpg</li>
+            <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12872277/" target="_blank" rel="noopener">Chin-Yuan &amp; Keng-Yi, Cureus 2026 (de winter, prox.-mid LAD)</a> → zoekcasus2.jpg</li>
+            <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12681427/" target="_blank" rel="noopener">Vallapuri e.a., Cureus 2025 (trombotische prox.-mid RCA-occlusie)</a> → zoekcasus3.jpg</li>
+            <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7949675/" target="_blank" rel="noopener">Ramjaun e.a., Cureus 2021 (posterieur infarct, RCx-occlusie)</a> → zoekcasus4.jpg</li>
+            <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9506673/" target="_blank" rel="noopener">Bhattad e.a., Cureus 2022 (aVR-patroon, hoofdstamlijden)</a> → zoekcasus5.jpg</li>
+            <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12682398/" target="_blank" rel="noopener">Poluyi e.a., Cureus 2025 (SCAD mid-LAD — Fig. 4)</a> → zoekcasus6.jpg</li>
+          </ol>
+          <p class="small">Controleer bij het downloaden het figuurnummer en of de licentieregel onder het artikel inderdaad CC&nbsp;BY vermeldt; pas zo nodig het veld <code>imgBron</code> in het script aan.</p>
+          <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
+            <p><strong>Of: beelden hier direct insluiten (aanbevolen).</strong> Download de zes figuren, kies ze hieronder per casus en klik op de knop. Je krijgt dan een <em>definitieve versie</em> van dit bestand waarin de beelden zijn ingebakken — één bestand, geen aparte map nodig, bronvermeldingen inbegrepen.</p>
+            <div id="embed-rows"></div>
+            <p style="margin-top:10px"><button class="btn" type="button" id="embed-go">Genereer definitieve versie met ingesloten beelden</button></p>
+            <p class="small muted" id="embed-status"></p>
+          </div>
+          <p>Tijdens een sessie kan een begeleider ook tijdelijk een beeld laden met de knop &lsquo;Echt beeld laden&rsquo; bij de uitleg (wordt niet opgeslagen).</p>
+        </div>
+      </details>
+    </div>
+    <div class="card" id="zoek-card">
+      <div class="dots" id="zoek-dots"></div>
+      <h2 id="zoek-title"></h2>
+      <p class="vignette" id="zoek-vignette"></p>
+      <div class="viewers" id="zoek-viewers"></div>
+      <div id="zoek-step"></div>
+      <div id="zoek-feedback"></div>
+    </div>
+    <div class="card hidden" id="zoek-result">
+      <h2>Je resultaat &mdash; zoekcasussen</h2>
+      <div class="score-line"><span class="score-big" id="zoek-score">0</span><span class="muted">van 12 punten</span></div>
+      <div id="zoek-rescases"></div>
+      <div class="feedback" style="margin-top:16px">
+        <h3>Het patroon achter deze zes</h3>
+        <p>Elke casus draait om dezelfde denkstap: van ECG-afleiding naar vaatgebied naar segment. Dat is exact stap 3 en 4 van het zesstappenplan &mdash; en exact wat je bij de hartteambespreking hardop gaat doen bij je drie echte CAG's.</p>
+      </div>
+      <div class="bko-only" style="margin-top:14px"><span class="bko-tag">Transfer: van patroonherkenning naar echte beelden</span></div>
+      <button class="btn ghost" id="zoek-again">Zoekcasussen opnieuw doen</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Onderdeel van het inwerkprogramma coschap Cardiothoracale Chirurgie (BKO-project). Schematische onderwijssimulatie; geen diagnostisch hulpmiddel.</p>
+  <p>Beleid volgt gangbare Europese richtlijnen op hoofdlijnen; het lokale protocol en het hartteam zijn altijd leidend.</p>
+</footer>
+
+<script>
+const PRISTINE = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+/* ── vaatdata ─────────────────────────────────────────────────────────── */
+const TREES = {
+  L: {
+    aorta:{d:"M 56,52 C 76,58 90,70 96,88", w:16, label:{t:"Ao", x:44, y:46}},
+    segs:[
+      {id:"lm",       d:"M 96,88 L 150,112",                          w:8},
+      {id:"lad-prox", d:"M 150,112 C 166,132 176,152 180,172",        w:8},
+      {id:"lad-mid",  d:"M 180,172 C 188,206 192,240 190,268",        w:7},
+      {id:"lad-dist", d:"M 190,268 C 188,300 178,332 156,349",        w:6},
+      {id:"d1",       d:"M 165,131 L 244,192",                        w:5.5},
+      {id:"d2",       d:"M 186,198 L 254,262",                        w:5},
+      {id:"lcx-prox", d:"M 150,112 C 190,116 220,128 242,148",        w:8},
+      {id:"lcx-dist", d:"M 242,148 C 274,172 296,206 304,252",        w:6.5},
+      {id:"om1",      d:"M 242,148 L 306,224",                        w:6},
+      {id:"om2",      d:"M 284,196 L 340,254",                        w:5}
+    ],
+    decor:[
+      {d:"M 175,158 L 154,194", w:2.5},
+      {d:"M 186,216 L 166,252", w:2.5}
+    ],
+    labels:[
+      {t:"LM", x:104, y:78},{t:"LAD", x:200, y:246},{t:"D1", x:250, y:186},
+      {t:"D2", x:260, y:272},{t:"LCx", x:258, y:138},{t:"OM1", x:312, y:234},{t:"OM2", x:344, y:264}
+    ]
+  },
+  R: {
+    aorta:{d:"M 214,42 C 196,50 184,60 176,74", w:16, label:{t:"Ao", x:222, y:38}},
+    segs:[
+      {id:"rca-prox", d:"M 176,74 C 140,88 116,112 106,150",          w:8},
+      {id:"rca-mid",  d:"M 106,150 C 96,198 96,238 112,274",          w:8},
+      {id:"rca-dist", d:"M 112,274 C 126,302 148,320 176,328",        w:7},
+      {id:"rdp",      d:"M 176,328 C 214,336 254,338 292,334",        w:6},
+      {id:"rpl",      d:"M 176,328 C 196,346 218,360 244,366",        w:5.5},
+      {id:"rv",       d:"M 103,206 L 178,252",                        w:4.5}
+    ],
+    decor:[
+      {d:"M 220,335 L 218,314", w:2.5},
+      {d:"M 252,337 L 250,316", w:2.5}
+    ],
+    labels:[
+      {t:"RCA", x:70, y:206},{t:"RDP", x:298, y:328},{t:"RPL", x:250, y:380},{t:"RV-tak", x:184, y:244}
+    ]
+  }
+};
+
+const SEGINFO = {
+  "lm":       {n:"Hoofdstam (LM)", g:"Vrijwel de gehele linkerventrikel (via LAD en LCx)", e:"Diffuse ischemie; klassiek ST-depressie met ST-elevatie in aVR"},
+  "lad-prox": {n:"Proximale LAD", g:"Voorwand, apex en anterieure 2/3 van het septum", e:"V1–V4, vaak ook I en aVL"},
+  "lad-mid":  {n:"Mid-LAD", g:"Voorwand en apex", e:"V2–V4"},
+  "lad-dist": {n:"Distale LAD", g:"Apex", e:"V3–V4"},
+  "d1":       {n:"Eerste diagonaal (D1)", g:"Anterolaterale wand", e:"I, aVL, V5"},
+  "d2":       {n:"Tweede diagonaal (D2)", g:"Anterolaterale wand", e:"I, aVL, V5–V6"},
+  "lcx-prox": {n:"Proximale ramus circumflexus (LCx)", g:"Laterale wand", e:"I, aVL, V5–V6"},
+  "lcx-dist": {n:"Distale LCx", g:"Posterolaterale wand", e:"V5–V6, soms V7–V9"},
+  "om1":      {n:"Eerste marginale tak (OM1)", g:"Laterale wand", e:"I, aVL, V5–V6"},
+  "om2":      {n:"Tweede marginale tak (OM2)", g:"Laterale wand", e:"V5–V6"},
+  "rca-prox": {n:"Proximale RCA", g:"Rechterventrikel en (bij rechtsdominantie) onderwand", e:"II, III, aVF — maak V4R bij verdenking RV-infarct"},
+  "rca-mid":  {n:"Mid-RCA", g:"Rechterventrikel en onderwand", e:"II, III, aVF"},
+  "rca-dist": {n:"Distale RCA", g:"Onderwand; meestal ook de AV-knoop", e:"II, III, aVF — cave bradycardie en AV-blok"},
+  "rdp":      {n:"Ramus descendens posterior (RDP)", g:"Onderwand en posterieure 1/3 van het septum", e:"II, III, aVF"},
+  "rpl":      {n:"Posterolaterale tak (RPL)", g:"Posterolaterale wand", e:"II, III, aVF, V5–V6"},
+  "rv":       {n:"R. marginalis acutus (RV-tak)", g:"Vrije wand van de rechterventrikel", e:"V1 en V4R"}
+};
+
+/* ── casusdata ────────────────────────────────────────────────────────── */
+const CASES = [
+ {
+  title:"Casus 1 — Stabiele pijn op de borst",
+  vignette:"Man, 58 jaar. Sinds drie maanden drukkende pijn op de borst bij traplopen, die in rust binnen enkele minuten zakt (CCS II). Roker, hypertensie. Fietsergometrie: horizontale ST-depressie in V4–V6 bij 90 watt. Ondanks metoprolol, acetylsalicylzuur en een statine houdt hij klachten. Er volgt een CAG.",
+  trees:["L"],
+  stenoses:[{tree:"L", x:168, y:140, a:56, sev:90}],
+  steps:[
+   {type:"click", target:"lad-prox", prompt:"Er is één duidelijke vernauwing. Klik op het aangedane segment."},
+   {type:"mcq", prompt:"Hoe ernstig schat je deze stenose (diameterreductie)?",
+    o:["±30–40%","±50–60%","±90%","100% (chronische totale occlusie)"], c:2},
+   {type:"mcq", prompt:"Wat is het beste vervolgbeleid?",
+    o:["De medicatie verder ophogen; geen revascularisatie",
+       "Bespreken in het hartteam: zowel PCI als CABG (LIMA-op-LAD) zijn hier verdedigbaar",
+       "Vandaag nog een spoed-CABG",
+       "Trombolyse"], c:1}
+  ],
+  fb:{t:"Proximale LAD-stenose van ±90%",
+      x:"Een symptomatische patiënt met ischemiebewijs die klachten houdt ondanks medicamenteuze therapie heeft een revascularisatie-indicatie. De proximale LAD bedreigt een groot myocardgebied ('widow maker'). Bij geïsoleerd proximaal LAD-lijden zijn PCI en chirurgie (LIMA-op-LAD, eventueel minimaal invasief via MIDCAB) beide richtlijnopties; anatomie, comorbiditeit en patiëntvoorkeur bepalen de keuze in het hartteam.",
+      k:["Proximale LAD = groot bedreigd myocardgebied",
+         "Klachten + ischemiebewijs ondanks optimale medicatie → revascularisatie",
+         "Geïsoleerd proximaal LAD-lijden: PCI én chirurgie zijn opties — hartteam beslist"]}
+ },
+ {
+  title:"Casus 2 — Bijna onwel op de trap",
+  vignette:"Vrouw, 71 jaar. Toenemende inspanningsgebonden thoracale pijn en kortademigheid; gisteren werd ze bijna onwel op de trap. Diabetes type 2, hypercholesterolemie. Echo: goede linkerventrikelfunctie, geen klepvitium. Er volgt een CAG.",
+  trees:["L"],
+  stenoses:[{tree:"L", x:123, y:100, a:24, sev:70}],
+  steps:[
+   {type:"click", target:"lm", prompt:"Waar zit de vernauwing? Klik op het aangedane segment."},
+   {type:"mcq", prompt:"Hoe ernstig schat je deze stenose?",
+    o:["±30%","±50%","±70%","100%"], c:2},
+   {type:"mcq", prompt:"Wat is het beste vervolgbeleid?",
+    o:["Conservatief: medicatie en poliklinische controle over drie maanden",
+       "Revascularisatie is geïndiceerd: significant hoofdstamlijden. CABG is de klassieke standaard; PCI is bij gunstige anatomie en lage SYNTAX-score een alternatief — hartteam",
+       "Alleen een FFR-meting en daarna naar huis",
+       "TAVI"], c:1}
+  ],
+  fb:{t:"Hoofdstamstenose van ±70%",
+      x:"Een hoofdstamstenose ≥50% bedreigt vrijwel het gehele linker coronairsysteem en is een prognostische revascularisatie-indicatie: ingrijpen verbetert de overleving. De keuze tussen CABG en PCI hangt af van de SYNTAX-score, de anatomie en de comorbiditeit — een verplichte hartteambespreking. De LAO-caudale projectie ('spider view') toont de hoofdstam het best.",
+      k:["Hoofdstam ≥50% = prognostische indicatie voor revascularisatie",
+         "Spider view (LAO-caudaal) voor hoofdstam en bifurcatie",
+         "SYNTAX-score en comorbiditeit sturen de keuze CABG versus PCI"]}
+ },
+ {
+  title:"Casus 3 — Drietakslijden bij diabetes",
+  vignette:"Man, 64 jaar. Diabetes type 2 (insuline), perifeer vaatlijden. Stabiele angina CCS III ondanks drie antiangineuze middelen. LVEF 50%. De CAG toont meerdere afwijkingen; de SYNTAX-score komt uit op 34. Bekijk beide systemen.",
+  trees:["L","R"],
+  stenoses:[
+    {tree:"L", x:187, y:218, a:84, sev:80},
+    {tree:"L", x:272, y:184, a:50, sev:70},
+    {tree:"R", x:97,  y:218, a:86, sev:90}
+  ],
+  steps:[
+   {type:"mcq", prompt:"Wat is het angiografische beeld?",
+    o:["Eéntakslijden (LAD)",
+       "Tweetakslijden (LAD en LCx)",
+       "Drietakslijden: LAD, ramus circumflexus (OM1) en RCA",
+       "Geïsoleerd hoofdstamlijden"], c:2},
+   {type:"mcq", prompt:"Wat is de revascularisatiestrategie van voorkeur?",
+    o:["PCI van alle laesies",
+       "CABG",
+       "Alleen medicamenteus doorbehandelen",
+       "Eerst zes maanden hartrevalidatie, daarna herbeoordelen"], c:1},
+   {type:"mcq", prompt:"Welke graft wordt bij deze CABG vrijwel zeker op de LAD gelegd, en waarom?",
+    o:["Vena saphena magna — het makkelijkst te oogsten",
+       "LIMA (linker a. mammaria interna) — de beste langetermijnpatency (±90% na 10 jaar)",
+       "Arteria radialis — altijd de eerste keus",
+       "Een kunststofprothese"], c:1}
+  ],
+  fb:{t:"Drietakslijden bij een patiënt met diabetes",
+      x:"Bij diabetes en meertakslijden — zeker met een SYNTAX-score van 34 — geeft CABG een overlevingsvoordeel en minder herhaalde revascularisaties dan PCI (FREEDOM-trial). De LIMA-op-LAD is de hoeksteen van de operatie; aanvullend worden veneuze of arteriële grafts op de overige vaten gelegd. Merk op hoe belangrijk het is om ook na de eerste laesie systematisch dóór te kijken.",
+      k:["Diabetes + meertakslijden + hoge SYNTAX-score → CABG",
+         "LIMA-op-LAD: ±90% open na 10 jaar — hoeksteen van de CABG",
+         "Beoordeel altijd álle vaten: stop niet na de eerste afwijking"]}
+ },
+ {
+  title:"Casus 4 — STEMI op de katheterisatiekamer",
+  vignette:"Man, 49 jaar. Per ambulance: twee uur hevige drukkende pijn op de borst, misselijk en zweterig. ECG: ST-elevatie in II, III en aVF. Hij ligt binnen dertig minuten op de katheterisatietafel.",
+  trees:["R"],
+  stenoses:[{tree:"R", x:97, y:218, a:86, sev:99}],
+  fade:["rca-dist","rdp","rpl"],
+  steps:[
+   {type:"click", target:"rca-mid", prompt:"Klik op het segment met de (sub)totale occlusie. Let ook op de nauwelijks gevulde vaten distaal daarvan."},
+   {type:"mcq", prompt:"Hoe beschrijf je deze laesie het best?",
+    o:["±50%-stenose met TIMI 3-flow",
+       "±70%-stenose met TIMI 3-flow",
+       "±90%-stenose met TIMI 3-flow",
+       "Subtotale occlusie (±99%) met TIMI 1-flow"], c:3},
+   {type:"mcq", prompt:"Wat is de behandeling van eerste keus?",
+    o:["Spoed-CABG",
+       "Primaire PCI",
+       "Trombolyse en overplaatsing",
+       "Conservatief beleid; morgen een echo"], c:1}
+  ],
+  fb:{t:"Onderwand-STEMI door een subtotale RCA-occlusie",
+      x:"Bij een STEMI is primaire PCI de reperfusiestrategie van eerste keus — elke minuut vertraging kost myocard. Spoed-CABG is gereserveerd voor falen of onmogelijkheid van PCI en voor mechanische complicaties (ventrikelseptumruptuur, papillairspierruptuur, vrijewandruptuur). Bij een onderwandinfarct: maak V4R (rechterventrikelinfarct?), wees terughoudend met nitraten en let op bradycardie en AV-geleidingsstoornissen.",
+      k:["STEMI → primaire PCI; spoed-CABG alleen bij falen van PCI of mechanische complicaties",
+         "TIMI-flow beschrijft de distale vulling: hier TIMI 1",
+         "Onderwandinfarct: maak V4R; cave RV-infarct en AV-blok"]}
+ },
+ {
+  title:"Casus 5 — Niet elke stenose hoeft behandeld",
+  vignette:"Vrouw, 66 jaar. Atypische thoracale klachten, soms ook in rust; de fietstest was niet-conclusief. De cardioloog verricht een CAG. Behalve wat wandonregelmatigheden is er één vernauwing te zien.",
+  trees:["L"],
+  stenoses:[{tree:"L", x:272, y:184, a:50, sev:50}],
+  steps:[
+   {type:"click", target:"om1", prompt:"Klik op het segment met de vernauwing."},
+   {type:"mcq", prompt:"Hoe ernstig schat je deze stenose?",
+    o:["±50% (intermediair)","±90%","100%","Er is geen stenose"], c:0},
+   {type:"mcq", prompt:"Wat is het beste vervolgbeleid?",
+    o:["Direct PCI van deze laesie",
+       "FFR-meting; bij een FFR boven 0,80 (hier: 0,86) volgt optimale medicamenteuze therapie",
+       "CABG",
+       "De CAG over zes weken herhalen"], c:1}
+  ],
+  fb:{t:"Intermediaire OM1-stenose — eerst meten, dan behandelen",
+      x:"Een intermediaire stenose (±40–90%) zonder objectief ischemiebewijs vraagt om een fysiologische meting. Met een FFR van 0,86 is deze laesie niet hemodynamisch significant: een stent voegt dan niets toe (FAME-studies) en optimale medicamenteuze therapie is het juiste beleid. Behandel de patiënt, niet het plaatje — vermijd de 'oculostenotische reflex'.",
+      k:["Intermediaire stenose zonder ischemiebewijs → FFR/iFR",
+         "FFR ≤ 0,80 = significant; daarboven geen winst van PCI",
+         "Niet elke laesie verdient een stent: behandel de patiënt, niet het plaatje"]}
+ }
+];
+
+/* ── SVG-opbouw ───────────────────────────────────────────────────────── */
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs){
+  const n = document.createElementNS(SVGNS, tag);
+  for(const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+function buildTree(container, treeKey, opts){
+  opts = opts || {};
+  const T = TREES[treeKey];
+  const svg = el("svg", {viewBox:"0 0 420 400", role:"img",
+    "aria-label": treeKey === "L" ? "Schematisch linker coronairsysteem" : "Schematisch rechter coronairsysteem"});
+
+  // aorta
+  svg.appendChild(el("path", {d:T.aorta.d, class:"aorta", "stroke-width":T.aorta.w}));
+  const ao = el("text", {x:T.aorta.label.x, y:T.aorta.label.y, class:"svg-label"});
+  ao.textContent = T.aorta.label.t;
+  svg.appendChild(ao);
+
+  // decoratieve takjes
+  T.decor.forEach(d => svg.appendChild(el("path", {d:d.d, class:"vessel decor", "stroke-width":d.w})));
+
+  // segmenten + hitpaths
+  const segEls = {};
+  T.segs.forEach(s => {
+    const cls = "vessel" + ((opts.fade || []).includes(s.id) ? " faded" : "");
+    const vis = el("path", {d:s.d, class:cls, "stroke-width":s.w, "data-seg":s.id});
+    svg.appendChild(vis);
+    segEls[s.id] = vis;
+
+    const hit = el("path", {d:s.d, class:"hit" + (opts.clickable ? " clickable" : ""), "data-seg":s.id, tabindex: (opts.clickable || opts.hover) ? "0" : "-1"});
+    if(opts.hover){
+      const show = () => { vis.classList.add("hov"); opts.hover(s.id); };
+      const hide = () => vis.classList.remove("hov");
+      hit.addEventListener("mouseenter", show);
+      hit.addEventListener("mouseleave", hide);
+      hit.addEventListener("focus", show);
+      hit.addEventListener("blur", hide);
+      hit.addEventListener("click", show);
+    }
+    if(opts.clickable){
+      hit.addEventListener("click", () => opts.onSeg(s.id, vis));
+      hit.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); opts.onSeg(s.id, vis); } });
+    }
+    svg.appendChild(hit);
+  });
+
+  // labels
+  if(opts.labels){
+    T.labels.forEach(L => {
+      const t = el("text", {x:L.x, y:L.y, class:"svg-label"});
+      t.textContent = L.t;
+      svg.appendChild(t);
+    });
+  }
+
+  // stenosen (pinch)
+  (opts.stenoses || []).filter(st => st.tree === treeKey).forEach(st => {
+    const w = 8;
+    const gap = Math.max(0.5, w * (1 - st.sev/100));
+    const h = w/2 + 4;
+    const g = el("g", {transform:"translate(" + st.x + "," + st.y + ") rotate(" + st.a + ")"});
+    g.appendChild(el("polygon", {points:"-10,-" + h + " 10,-" + h + " 0,-" + gap, fill:"var(--viewer)"}));
+    g.appendChild(el("polygon", {points:"-10," + h + " 10," + h + " 0," + gap, fill:"var(--viewer)"}));
+    svg.appendChild(g);
+    const ring = el("circle", {cx:st.x, cy:st.y, r:14, class:"ring"});
+    svg.appendChild(ring);
+  });
+
+  container.innerHTML = "";
+  container.appendChild(svg);
+  return {svg, segEls};
+}
+
+/* ── tabs ─────────────────────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const PANELS = {sys:$("panel-sys"), ana:$("panel-ana"), cas:$("panel-cas"), zoek:$("panel-zoek")};
+const TABS = {sys:$("tab-sys"), ana:$("tab-ana"), cas:$("tab-cas"), zoek:$("tab-zoek")};
+function showTab(key){
+  Object.keys(PANELS).forEach(k => {
+    PANELS[k].classList.toggle("hidden", k !== key);
+    TABS[k].setAttribute("aria-selected", k === key ? "true" : "false");
+  });
+  window.scrollTo({top:0});
+}
+TABS.sys.addEventListener("click", () => showTab("sys"));
+TABS.ana.addEventListener("click", () => showTab("ana"));
+TABS.cas.addEventListener("click", () => { showTab("cas"); if(!casStarted){ startCases(); } });
+TABS.zoek.addEventListener("click", () => { showTab("zoek"); if(!zoekStarted){ startZoek(); } });
+$("btn-to-ana").addEventListener("click", () => showTab("ana"));
+$("btn-to-cas").addEventListener("click", () => { showTab("cas"); if(!casStarted){ startCases(); } });
+
+
+const bkoBtn = document.getElementById("btn-bko");
+bkoBtn.addEventListener("click", () => {
+  const on = document.body.classList.toggle("bko-on");
+  bkoBtn.textContent = on ? "Didactische verantwoording verbergen" : "Didactische verantwoording tonen";
+  bkoBtn.setAttribute("aria-pressed", on ? "true" : "false");
+});
+
+/* ── anatomie ─────────────────────────────────────────────────────────── */
+function anaHover(segId){
+  const i = SEGINFO[segId];
+  if(!i) return;
+  $("ana-info").innerHTML =
+    "<h3>" + i.n + "</h3>" +
+    '<p class="row"><strong>Verzorgingsgebied:</strong> ' + i.g + "</p>" +
+    '<p class="row"><strong>ECG bij ischemie:</strong> ' + i.e + "</p>";
+}
+buildTree($("ana-left"), "L", {labels:true, hover:anaHover});
+buildTree($("ana-right"), "R", {labels:true, hover:anaHover});
+
+/* ── casusengine ──────────────────────────────────────────────────────── */
+let casStarted = false;
+let C = null; // casusstate
+
+function startCases(){
+  casStarted = true;
+  C = {i:0, stepI:0, pts:0, casePts:[], attempts:0};
+  $("result-card").classList.add("hidden");
+  $("case-card").classList.remove("hidden");
+  renderCase();
+}
+
+function renderDots(){
+  const box = $("case-dots");
+  box.innerHTML = "";
+  CASES.forEach((_, k) => {
+    const d = document.createElement("span");
+    d.className = "dot" + (k < C.i ? " done" : (k === C.i ? " now" : ""));
+    box.appendChild(d);
+  });
+  const l = document.createElement("span");
+  l.className = "lbl";
+  l.textContent = "Casus " + (C.i+1) + " van " + CASES.length;
+  box.appendChild(l);
+}
+
+function renderCase(){
+  const cs = CASES[C.i];
+  C.stepI = 0;
+  C.caseScore = 0;
+  renderDots();
+  $("case-title").textContent = cs.title;
+  $("case-vignette").textContent = cs.vignette;
+  $("case-feedback").innerHTML = "";
+
+  // viewers
+  const vbox = $("case-viewers");
+  vbox.innerHTML = "";
+  C.trees = {};
+  cs.trees.forEach(tk => {
+    const wrap = document.createElement("div");
+    wrap.className = "viewer";
+    const cap = document.createElement("div");
+    cap.className = "viewer-cap";
+    cap.innerHTML = "<span>" + (tk === "L" ? "Linker coronairsysteem" : "Rechter coronairsysteem") + "</span><span>schematisch</span>";
+    const holder = document.createElement("div");
+    wrap.appendChild(cap); wrap.appendChild(holder);
+    vbox.appendChild(wrap);
+    C.trees[tk] = {holder, built:null};
+  });
+  buildCaseTrees(false);
+  renderStep();
+}
+
+function buildCaseTrees(clickable){
+  const cs = CASES[C.i];
+  cs.trees.forEach(tk => {
+    C.trees[tk].built = buildTree(C.trees[tk].holder, tk, {
+      stenoses: cs.stenoses,
+      fade: cs.fade || [],
+      clickable: clickable,
+      onSeg: clickable ? onSegClick : null
+    });
+  });
+}
+
+function revealRings(){
+  Object.values(C.trees).forEach(t => {
+    t.built.svg.querySelectorAll(".ring").forEach(r => r.classList.add("show"));
+  });
+}
+
+function renderStep(){
+  const cs = CASES[C.i];
+  const st = cs.steps[C.stepI];
+  const box = $("case-step");
+  C.attempts = 0;
+
+  if(!st){ showCaseFeedback(); return; }
+
+  if(st.type === "click"){
+    buildCaseTrees(true);
+    box.innerHTML = '<p class="prompt">' + st.prompt + '</p><p class="small muted">Tip: gebruik wat je in de anatomiemodus hebt geleerd. Je eerste klik telt voor de score.</p><div class="miniresult" id="mini"></div>';
+  } else {
+    box.innerHTML = '<p class="prompt">' + st.prompt + '</p><div class="opts" id="step-opts"></div><div class="miniresult" id="mini"></div>';
+    const ob = $("step-opts");
+    st.o.forEach((opt, k) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "opt";
+      b.innerHTML = '<span class="letter">' + "ABCD"[k] + '</span><span>' + opt + '</span>';
+      b.addEventListener("click", () => onMcq(k, b));
+      ob.appendChild(b);
+    });
+  }
+}
+
+function onSegClick(segId, visEl){
+  const cs = CASES[C.i];
+  const st = cs.steps[C.stepI];
+  if(st.type !== "click" || C.stepDone) return;
+  const mini = $("mini");
+  if(segId === st.target){
+    C.stepDone = true;
+    visEl.classList.add("seg-good");
+    revealRings();
+    const first = C.attempts === 0;
+    if(first) C.caseScore++;
+    mini.className = "miniresult ok";
+    mini.textContent = first
+      ? "Goed: dit is de " + SEGINFO[segId].n.toLowerCase() + ". (+1 punt)"
+      : "Dat is hem: de " + SEGINFO[segId].n.toLowerCase() + ". (Geen punt — niet in één keer gevonden.)";
+    setTimeout(advanceStep, 900);
+  } else {
+    C.attempts++;
+    visEl.classList.add("seg-bad");
+    setTimeout(() => visEl.classList.remove("seg-bad"), 600);
+    mini.className = "miniresult nok";
+    mini.textContent = "Dat is de " + SEGINFO[segId].n.toLowerCase() + " — kijk nog eens goed waar het vat vernauwt.";
+  }
+}
+
+function onMcq(k, btn){
+  const cs = CASES[C.i];
+  const st = cs.steps[C.stepI];
+  if(C.stepDone) return;
+  C.stepDone = true;
+  const opts = Array.from($("step-opts").children);
+  opts.forEach((b,j) => {
+    b.disabled = true;
+    if(j === st.c) b.classList.add("correct");
+    else if(j === k) b.classList.add("wrong");
+  });
+  const mini = $("mini");
+  if(k === st.c){
+    C.caseScore++;
+    mini.className = "miniresult ok";
+    mini.textContent = "Goed. (+1 punt)";
+  } else {
+    mini.className = "miniresult nok";
+    mini.textContent = "Niet juist — het goede antwoord is " + "ABCD"[st.c] + ".";
+  }
+  if(C.stepI === 0) revealRings();
+  setTimeout(advanceStep, 1100);
+}
+
+function advanceStep(){
+  C.stepDone = false;
+  C.stepI++;
+  renderStep();
+}
+
+function showCaseFeedback(){
+  const cs = CASES[C.i];
+  C.casePts.push(C.caseScore);
+  C.pts += C.caseScore;
+  $("case-step").innerHTML = "";
+  const fb = $("case-feedback");
+  const last = C.i === CASES.length - 1;
+  fb.innerHTML =
+    '<div class="feedback"><h3>' + cs.fb.t + " — " + C.caseScore + " van " + cs.steps.length + " punten</h3>" +
+    "<p>" + cs.fb.x + "</p>" +
+    "<ul>" + cs.fb.k.map(x => "<li>" + x + "</li>").join("") + "</ul></div>" +
+    '<button class="btn" id="btn-next-case">' + (last ? "Naar je resultaat" : "Volgende casus") + "</button>";
+  $("btn-next-case").addEventListener("click", () => {
+    if(last){ showResult(); }
+    else { C.i++; renderCase(); window.scrollTo({top:0}); }
+  });
+}
+
+function showResult(){
+  $("case-card").classList.add("hidden");
+  const rc = $("result-card");
+  rc.classList.remove("hidden");
+  $("res-score").textContent = C.pts;
+  const box = $("res-cases");
+  box.innerHTML = "";
+  CASES.forEach((cs, k) => {
+    const row = document.createElement("div");
+    row.className = "case-row";
+    row.innerHTML = "<span>" + cs.title + "</span><strong>" + C.casePts[k] + " / " + cs.steps.length + "</strong>";
+    box.appendChild(row);
+  });
+  window.scrollTo({top:0});
+}
+
+$("btn-again").addEventListener("click", startCases);
+
+/* ── waar zit de afwijking? ───────────────────────────────────────────── */
+const ZCASES = [
+ {
+  title:"Zoekcasus 1 — Pijnvrij, maar het ECG waarschuwt",
+  vignette:"Man, 58 jaar, meldt zich met recidiverende drukkende pijn op de borst. Op de SEH is hij klachtenvrij en zijn de troponines herhaald negatief. Het ECG toont echter bifasische T-toppen in V2–V3. Er volgt een CAG.",
+  bron:"Gebaseerd op het klassieke wellens-patroon (De Zwaan, Bär & Wellens, Am Heart J 1982).",
+  img:"beelden/zoekcasus1.jpg", imgBron:"Kim J, Zaheer S, Omar H. A Case of Wellens\u2019 Syndrome. Cureus 2023;15(12):e50736 \u2014 Figuur 2 (proximale LAD-stenose, pijl). Licentie: CC BY 4.0.",
+  trees:["L"], stenoses:[{tree:"L", x:168, y:140, a:56, sev:90}], fade:[],
+  target:"lad-prox",
+  uitleg:"Bifasische of diep-negatieve T-toppen in V2–V3 bij een pijnvrije patiënt (wellens-patroon) wijzen op een kritieke stenose van de proximale LAD. Het beeld is verraderlijk gunstig: juist deze patiënt hoort niet naar de fietsergometrie maar naar de katheterisatiekamer."
+ },
+ {
+  title:"Zoekcasus 2 — Geen ST-elevatie, toch dicht",
+  vignette:"Man, 44 jaar, aanhoudende hevige pijn op de borst sinds 40 minuten. ECG: opgaande (upsloping) ST-depressie aan de precordiale afleidingen die overgaat in hoge, symmetrische T-toppen; geen klassieke ST-elevatie. De pijn houdt aan.",
+  bron:"Gebaseerd op het de winter-patroon (de Winter e.a., N Engl J Med 2008).",
+  img:"beelden/zoekcasus2.jpg", imgBron:"Chin-Yuan H, Keng-Yi W. The Critical Importance of Recognizing De Winter\u2019s T-wave Pattern. Cureus 2026;18(2):e102984 \u2014 angiografiefiguur culpritlaesie proximale-mid LAD (controleer figuurnummer bij downloaden). Licentie: CC BY 4.0.",
+  trees:["L"], stenoses:[{tree:"L", x:174, y:154, a:62, sev:99}], fade:["lad-mid","lad-dist","d2"],
+  target:"lad-prox",
+  uitleg:"Het de winter-patroon is een STEMI-equivalent: het hoort bij een acute (sub)totale occlusie van de proximale LAD. In het angiogram zie je de contrastvulling voorbij de afsluiting wegvallen. Behandeling: directe reperfusie, ook zonder ST-elevatie."
+ },
+ {
+  title:"Zoekcasus 3 — Onderwand, maar waar precies?",
+  vignette:"Vrouw, 67 jaar, acute pijn op de borst met misselijkheid. ECG: ST-elevatie in II, III en aVF, met elevatie in III groter dan in II, en ST-elevatie in V4R. Ze is hypotensief en reageert goed op vulling.",
+  bron:"Lokalisatieprincipes cf. Zimetbaum & Josephson, N Engl J Med 2003.",
+  img:"beelden/zoekcasus3.jpg", imgBron:"Vallapuri GS, Jariwala PV, Gude D, Reddy K BK, Jangam S. Non-diagnostic 12-Lead ECG in an Acute Proximal-to-Mid RCA Occlusion. Cureus 2025;17(11):e96144 \u2014 angiografiefiguur trombotische proximale-mid RCA-occlusie (controleer figuurnummer). Licentie: CC BY 4.0. NB: in deze publicatie zonder klassiek onderwand-ECG \u2014 gebruik alleen het angiogram.",
+  trees:["R"], stenoses:[{tree:"R", x:128, y:104, a:-38, sev:99}], fade:["rca-mid","rca-dist","rdp","rpl","rv"],
+  target:"rca-prox",
+  uitleg:"Elevatie III &gt; II plus een positieve V4R past bij een proximale RCA-occlusie vóór de RV-tak: onderwandinfarct mét rechterventrikelbetrokkenheid. Daarom is zij vullingsafhankelijk en zijn nitraten hier gevaarlijk. In het beeld breekt de RCA vroeg af."
+ },
+ {
+  title:"Zoekcasus 4 — De 'stille' achterwand",
+  vignette:"Man, 71 jaar, twee uur zeurende pijn tussen de schouderbladen. ECG: ST-depressie in V1–V3 met opvallend hoge R-toppen in V1–V2; de achterwandafleidingen V7–V9 tonen ST-elevatie.",
+  bron:"Lokalisatieprincipes cf. Zimetbaum & Josephson, N Engl J Med 2003.",
+  img:"beelden/zoekcasus4.jpg", imgBron:"Ramjaun A, Garg A, Klaiman M, Sibbald M, Dong JK. ECG Changes in a Case of Posterior Myocardial Infarction in the Presence of RBBB. Cureus 2021;13(2):e13281 \u2014 angiografiefiguur (controleer figuurnummer). Licentie: CC BY. NB: hier is de ramus circumflexus zelf geoccludeerd; ons schema toont de eerste marginaaltak \u2014 zelfde stroomgebied.",
+  trees:["L"], stenoses:[{tree:"L", x:262, y:172, a:50, sev:99}], fade:["om2"],
+  target:"om1",
+  uitleg:"ST-depressie in V1–V3 met hoge R-toppen is het spiegelbeeld van een posterieur (inferobasaal) infarct; V7–V9 bevestigen dit. De boosdoener zit in het circumflexgebied — hier een occlusie van de eerste marginaaltak (OM1). Dit infarct wordt het vaakst gemist: er is geen 'elevatie' op het standaard-ECG."
+ },
+ {
+  title:"Zoekcasus 5 — Depressie overal, elevatie in aVR",
+  vignette:"Man, 63 jaar, sinds een uur pijn op de borst met transpireren; kortademig, bleek, tensie 100/70. ECG: ST-depressie in meer dan zes afleidingen (I, II, V3–V6) met ST-elevatie in aVR.",
+  bron:"Gebaseerd op de aVR-literatuur bij hoofdstam-/ernstig drietakslijden (o.a. Yamaji e.a., J Am Coll Cardiol 2001).",
+  img:"beelden/zoekcasus5.jpg", imgBron:"Bhattad PB, Sherif AA, Mishra AK, Roumia M. Left Main Coronary Artery Disease: The Forgotten Lead of Electrocardiogram Is Predictive. Cureus 2022;14(8):e28391 \u2014 angiogram ernstig (distaal) hoofdstamlijden (controleer figuurnummer). Licentie: CC BY.",
+  trees:["L"], stenoses:[{tree:"L", x:123, y:100, a:25, sev:80}], fade:[],
+  target:"lm",
+  uitleg:"Diffuse ST-depressie met elevatie in aVR past bij globale subendocardiale ischemie door een ernstige hoofdstamstenose (of het equivalent daarvan). Dit is een 'bel-de-chirurg'-ECG: bij hoofdstamlijden staat CABG prominent in de afweging en is de patiënt instabiel tot bewezen anders."
+ },
+ {
+  title:"Zoekcasus 6 — Jong, vrouw, geen risicofactoren",
+  vignette:"Vrouw, 34 jaar, drie weken post partum, acute pijn op de borst met troponinestijging. Geen risicofactoren. Angiografie: geen kalk, maar een lange, gladde, geleidelijke vernauwing zonder plaquebeeld.",
+  bron:"Gebaseerd op de SCAD-literatuur (Saw e.a., classificatie 2014; Hayes e.a., AHA Scientific Statement 2018).",
+  img:"beelden/zoekcasus6.jpg", imgBron:"Poluyi CO, Duodu EF, Le E, Oudit OA, Rafii SE. Spontaneous Coronary Artery Dissection in a Lactating Mother Three Years Postpartum. Cureus 2025;17(11):e96330 \u2014 Figuur 4 (RAO craniaal: type 2 SCAD van de mid-LAD, lange gladde vernauwing). Licentie: CC BY 4.0.",
+  trees:["L"], stenoses:[{tree:"L", x:188, y:222, a:82, sev:65}], fade:[],
+  target:"lad-mid",
+  uitleg:"Een jonge vrouw post partum met een infarct en een lange gladde vernauwing zonder atherosclerose: denk aan een spontane coronairdissectie (SCAD, type 2), hier van de mid-LAD. Beleid is meestal juist conservatief — stenten van een dissectie kan het vals lumen uitbreiden. Herkenning verandert dus direct de behandeling."
+ }
+];
+
+let zoekStarted = false;
+const Z = {i:0, attempts:0, done:false, scores:[], trees:{}};
+
+function startZoek(){
+  zoekStarted = true;
+  Z.i = 0; Z.scores = [];
+  $("zoek-result").classList.add("hidden");
+  $("zoek-card").classList.remove("hidden");
+  renderZoek();
+}
+function zoekDots(){
+  const d = $("zoek-dots");
+  d.innerHTML = "";
+  ZCASES.forEach((c,k) => {
+    const s = document.createElement("span");
+    s.className = "dot" + (k === Z.i ? " active" : (k < Z.i ? " done" : ""));
+    d.appendChild(s);
+  });
+}
+function renderZoek(){
+  const cs = ZCASES[Z.i];
+  Z.attempts = 0; Z.done = false; Z.trees = {};
+  zoekDots();
+  $("zoek-title").textContent = cs.title;
+  $("zoek-vignette").innerHTML = cs.vignette + '<br><span class="small muted" style="font-style:normal">' + cs.bron + "</span>";
+  $("zoek-feedback").innerHTML = "";
+  const v = $("zoek-viewers");
+  v.innerHTML = "";
+  cs.trees.forEach(tk => {
+    const wrap = document.createElement("div");
+    wrap.className = "viewer";
+    const holder = document.createElement("div");
+    wrap.appendChild(holder);
+    const cap = document.createElement("p");
+    cap.className = "viewer-cap";
+    cap.textContent = tk === "L" ? "Linker coronairsysteem" : "Rechter coronairsysteem";
+    wrap.appendChild(cap);
+    v.appendChild(wrap);
+    Z.trees[tk] = buildTree(holder, tk, {stenoses: cs.stenoses, fade: cs.fade || [], clickable: true, onSeg: onZoekClick});
+  });
+  $("zoek-step").innerHTML = '<p class="prompt">Waar zit de afwijking? Klik op het aangedane segment.</p><p class="small muted">Kijk naar het beeld én naar het ECG in het verhaal. Eerste klik goed = 2 punten, tweede = 1 punt; daarna tonen we het antwoord.</p><div class="miniresult" id="zoek-mini"></div>';
+}
+function onZoekClick(segId, visEl){
+  if(Z.done) return;
+  const cs = ZCASES[Z.i];
+  const mini = $("zoek-mini");
+  if(segId === cs.target){
+    Z.done = true;
+    visEl.classList.add("seg-good");
+    Object.values(Z.trees).forEach(t => t.svg.querySelectorAll(".ring").forEach(r => r.classList.add("show")));
+    const pts = Z.attempts === 0 ? 2 : (Z.attempts === 1 ? 1 : 0);
+    Z.scores.push(pts);
+    mini.innerHTML = '<span class="good">Juist — ' + (SEGINFO[segId] ? SEGINFO[segId].n : segId) + ". +" + pts + (pts === 1 ? " punt." : " punten.") + "</span>";
+    toonZoekUitleg();
+  } else {
+    Z.attempts++;
+    const info = SEGINFO[segId];
+    if(Z.attempts >= 3){
+      Z.done = true;
+      Z.scores.push(0);
+      const tgt = Object.values(Z.trees).map(t => t.segEls[cs.target]).find(Boolean);
+      if(tgt) tgt.classList.add("seg-good");
+      Object.values(Z.trees).forEach(t => t.svg.querySelectorAll(".ring").forEach(r => r.classList.add("show")));
+      mini.innerHTML = '<span class="bad">Dit was: ' + (SEGINFO[cs.target] ? SEGINFO[cs.target].n : cs.target) + ". Lees de uitleg goed en probeer de reeks straks opnieuw.</span>";
+      toonZoekUitleg();
+    } else {
+      mini.innerHTML = '<span class="bad">Niet daar. ' + (info ? "Je klikte op de " + info.n.toLowerCase() + " (ECG: " + info.e + "). " : "") + "Kijk nog eens naar de afleidingen in het verhaal — welk vaatgebied hoort daarbij?</span>";
+    }
+  }
+}
+function toonZoekUitleg(){
+  const cs = ZCASES[Z.i];
+  const laatste = Z.i === ZCASES.length - 1;
+  $("zoek-feedback").innerHTML =
+    '<div class="feedback"><h3>Uitleg</h3><p>' + cs.uitleg + '</p><p class="small muted">' + cs.bron + '</p></div>' +
+    '<div id="zoek-echt" style="display:none;margin:14px 0"><h3 style="margin:0 0 8px">Het echte beeld</h3>' +
+      '<img id="zoek-echt-img" alt="Echt angiografiebeeld bij deze casus" style="max-width:100%;border-radius:10px;border:1px solid var(--line)">' +
+      '<p class="small muted" id="zoek-echt-bron" style="margin-top:6px"></p></div>' +
+    '<p style="margin:10px 0"><button class="btn ghost" id="zoek-laad" type="button">Echt beeld laden (alleen deze sessie)</button>' +
+      '<input type="file" id="zoek-file" accept="image/*" style="display:none"></p>' +
+    '<button class="btn" id="zoek-next">' + (laatste ? "Naar je resultaat" : "Volgende zoekcasus") + "</button>";
+
+  const echt = $("zoek-echt"), img = $("zoek-echt-img"), bronEl = $("zoek-echt-bron");
+  function toonBeeld(src, bron){
+    img.src = src;
+    bronEl.textContent = "Bron: " + (bron || "[bronvermelding + licentie invullen]");
+    echt.style.display = "block";
+    $("zoek-laad").style.display = "none";
+  }
+  if(cs.img){
+    img.addEventListener("load", () => toonBeeld(img.src, cs.imgBron), {once:true});
+    img.src = cs.img; // toont automatisch als beelden/zoekcasusN.jpg naast dit bestand staat
+  }
+  $("zoek-laad").addEventListener("click", () => $("zoek-file").click());
+  $("zoek-file").addEventListener("change", e => {
+    const f = e.target.files && e.target.files[0];
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = () => toonBeeld(r.result, cs.imgBron);
+    r.readAsDataURL(f);
+  });
+  $("zoek-next").addEventListener("click", () => {
+    if(laatste){ toonZoekResultaat(); } else { Z.i++; renderZoek(); }
+  });
+  window.scrollTo({top: $("zoek-feedback").offsetTop - 140, behavior:"smooth"});
+}
+function toonZoekResultaat(){
+  $("zoek-card").classList.add("hidden");
+  const tot = Z.scores.reduce((a,b) => a+b, 0);
+  $("zoek-score").textContent = tot;
+  $("zoek-rescases").innerHTML = ZCASES.map((c,k) =>
+    '<p class="small" style="margin:4px 0"><strong>' + c.title.replace("Zoekcasus","Casus") + ':</strong> ' + Z.scores[k] + ' van 2 punten</p>'
+  ).join("");
+  $("zoek-result").classList.remove("hidden");
+  window.scrollTo({top:0});
+}
+$("zoek-again").addEventListener("click", startZoek);
+
+
+/* ── beelden insluiten (beheerdersfunctie) ────────────────────────────── */
+(function(){
+  const rows = document.getElementById("embed-rows");
+  if(!rows) return;
+  const labels = ["1 \u2014 wellens (Kim e.a.)","2 \u2014 de winter (Chin-Yuan & Keng-Yi)","3 \u2014 prox. RCA (Vallapuri e.a.)","4 \u2014 posterieur/RCx (Ramjaun e.a.)","5 \u2014 hoofdstam (Bhattad e.a.)","6 \u2014 SCAD (Poluyi e.a.)"];
+  labels.forEach((lb,i)=>{
+    const d=document.createElement("div");
+    d.style.cssText="display:flex;align-items:center;gap:10px;margin:4px 0";
+    d.innerHTML='<span class="small" style="min-width:230px">Zoekcasus '+lb+'</span>'+
+      '<input type="file" accept="image/*" data-n="'+(i+1)+'" class="embed-file">'+
+      '<span class="small muted" id="embed-ok-'+(i+1)+'"></span>';
+    rows.appendChild(d);
+  });
+  document.getElementById("embed-go").addEventListener("click", async () => {
+    const status = document.getElementById("embed-status");
+    const files = Array.from(document.querySelectorAll(".embed-file"));
+    let html = PRISTINE, aantal = 0;
+    for(const inp of files){
+      const f = inp.files && inp.files[0];
+      const n = inp.getAttribute("data-n");
+      if(!f) continue;
+      const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+      const zoek = 'img:"beelden/zoekcasus'+n+'.jpg"';
+      if(html.indexOf(zoek) === -1){ status.textContent = "Kon casus "+n+" niet vinden \u2014 is dit al een definitieve versie?"; continue; }
+      html = html.replace(zoek, 'img:"'+dataUrl+'"');
+      document.getElementById("embed-ok-"+n).textContent = "\u2713 ingesloten";
+      aantal++;
+    }
+    if(!aantal){ status.textContent = "Geen bestanden gekozen."; return; }
+    const blob = new Blob([html], {type:"text/html;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "CAG_simulatie_coschap_CTC_definitief.html";
+    document.body.appendChild(a); a.click(); a.remove();
+    status.textContent = aantal + " beeld(en) ingesloten. Het bestand \u2018CAG_simulatie_coschap_CTC_definitief.html\u2019 staat in je downloads \u2014 dat is voortaan h\u00e9t bestand om te verspreiden.";
+  });
+})();
+
+</script>
+</body>
+</html>

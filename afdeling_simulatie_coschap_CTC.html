@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De afdeling belt — dienstsimulatie verpleegafdeling CTC</title>
+<style>
+
+  :root{
+    --navy:#0d2240;
+    --navy-soft:#16345c;
+    --cyan:#0aa2dc;
+    --paper:#fdfdfb;
+    --ink:#22272e;
+    --slate:#5c6672;
+    --line:#dfe1dc;
+    --good:#1d7a4f;
+    --good-bg:#e9f4ee;
+    --bad:#b5232e;
+    --bad-bg:#faecec;
+    --sel:#eaf5fb;
+    --viewer:#0e1116;
+    --vessel:#dde3ea;
+    --vessel-dim:#8d99a6;
+    --ring:#ff5a4e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Archivo","Segoe UI",system-ui,-apple-system,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.55;
+    font-size:16px;
+  }
+  .band{background:var(--navy);color:#fff;padding:40px 24px 34px}
+  .band-inner{max-width:980px;margin:0 auto}
+  .band h1{font-size:clamp(25px,4vw,36px);font-weight:800;letter-spacing:-0.02em;line-height:1.12}
+  .band .sub{margin-top:10px;color:#b9c6d8;font-size:15px;max-width:62ch}
+  .band .dept{margin-top:20px;padding-top:12px;border-top:1px solid rgba(255,255,255,.18);font-size:13.5px;color:#8fa1b5}
+
+  main{max-width:980px;margin:0 auto;padding:26px 24px 70px}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .tab{
+    font:inherit;font-weight:700;font-size:15px;
+    padding:10px 18px;border-radius:999px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;
+  }
+  .tab[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+  .tab:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:26px;margin-bottom:18px}
+  h2{font-size:20px;font-weight:700;margin-bottom:10px;letter-spacing:-0.01em}
+  h3{font-size:16px;font-weight:700;margin-bottom:6px}
+  p+p{margin-top:10px}
+  .muted{color:var(--slate)}
+  .small{font-size:14px}
+  ul.plain{padding-left:20px}
+  ul.plain li{margin:5px 0}
+
+  /* systematiek */
+  .steps{counter-reset:s;display:flex;flex-direction:column;gap:0}
+  .step{
+    counter-increment:s;
+    display:flex;gap:16px;
+    padding:16px 0;
+    border-top:1px solid var(--line);
+  }
+  .step:first-child{border-top:none;padding-top:4px}
+  .step::before{
+    content:counter(s);
+    flex:none;width:30px;height:30px;border-radius:50%;
+    background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:14px;margin-top:2px;
+  }
+  .step p{margin-top:3px}
+
+  /* viewers */
+  .viewers{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin:14px 0}
+  .viewer{
+    background:var(--viewer);
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid #1d2530;
+  }
+  .viewer-cap{
+    color:#93a2b4;font-size:12.5px;
+    padding:9px 14px;border-bottom:1px solid #1d2530;
+    display:flex;justify-content:space-between;gap:10px;
+  }
+  .viewer svg{display:block;width:100%;height:auto}
+  .vessel{fill:none;stroke:var(--vessel);stroke-linecap:round}
+  .vessel.decor{stroke:var(--vessel-dim)}
+  .vessel.faded{opacity:.28;stroke-dasharray:4 6}
+  .vessel.hov{stroke:var(--cyan)}
+  .vessel.seg-good{stroke:#41c98a}
+  .vessel.seg-bad{stroke:var(--ring)}
+  .hit{fill:none;stroke:transparent;stroke-width:20;stroke-linecap:round}
+  .hit.clickable{cursor:pointer}
+  .hit:focus-visible{outline:none}
+  .hit:focus-visible + .focusring{opacity:1}
+  .aorta{fill:none;stroke:#5b6877;stroke-linecap:round}
+  .svg-label{fill:#7f93a8;font-size:12.5px;font-family:inherit}
+  .ring{fill:none;stroke:var(--ring);stroke-width:2;stroke-dasharray:4 4;opacity:0}
+  .ring.show{opacity:1}
+  @media (prefers-reduced-motion: no-preference){
+    .ring.show{animation:pulse 1.6s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:.95}50%{opacity:.35}}
+  }
+
+  /* casus */
+  .dots{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+  .dot{width:12px;height:12px;border-radius:50%;background:var(--line)}
+  .dot.now{background:var(--navy);outline:3px solid var(--sel)}
+  .dot.done{background:var(--good)}
+  .dots .lbl{font-size:13.5px;font-weight:700;color:var(--slate);margin-left:6px}
+  .vignette{
+    border-left:3px solid var(--navy);
+    background:#f6f7f9;
+    padding:14px 16px;border-radius:0 8px 8px 0;
+    font-size:15px;
+  }
+  .prompt{font-size:16.5px;font-weight:700;margin:16px 0 12px}
+  .opts{display:flex;flex-direction:column;gap:10px}
+  .opt{
+    text-align:left;background:#fff;border:1px solid var(--line);border-radius:8px;
+    padding:12px 15px;font:inherit;font-size:15px;line-height:1.45;cursor:pointer;
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .opt .letter{
+    flex:none;width:25px;height:25px;border-radius:50%;
+    border:1.5px solid var(--slate);color:var(--slate);
+    display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;margin-top:1px;
+  }
+  .opt:hover{border-color:var(--navy)}
+  .opt.correct{border-color:var(--good);background:var(--good-bg)}
+  .opt.correct .letter{background:var(--good);border-color:var(--good);color:#fff}
+  .opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
+  .opt.wrong .letter{background:var(--bad);border-color:var(--bad);color:#fff}
+  .opt:disabled{cursor:default}
+  .opt:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .miniresult{margin-top:12px;font-size:14.5px;font-weight:600}
+  .miniresult.ok{color:var(--good)}
+  .miniresult.nok{color:var(--bad)}
+
+  .feedback{
+    border-left:3px solid var(--cyan);
+    background:#f4fafd;
+    padding:16px 18px;border-radius:0 8px 8px 0;
+    margin-top:18px;font-size:14.8px;
+  }
+  .feedback h3{margin-bottom:8px}
+  .feedback ul{padding-left:20px;margin-top:8px}
+  .feedback li{margin:4px 0}
+
+  button.btn{
+    font:inherit;font-weight:700;cursor:pointer;border:none;border-radius:8px;
+    background:var(--navy);color:#fff;padding:12px 24px;font-size:15.5px;margin-top:18px;
+  }
+  button.btn:hover{background:var(--navy-soft)}
+  button.btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--slate)}
+
+  /* anatomie infopaneel */
+  .info{
+    border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;background:#fff;min-height:96px;
+  }
+  .info h3{color:var(--navy)}
+  .info .row{font-size:14.5px;margin-top:4px}
+  .info .row strong{font-weight:700}
+
+  /* eindresultaat */
+  .score-line{display:flex;align-items:baseline;gap:12px;margin:4px 0 12px}
+  .score-big{font-size:48px;font-weight:800;letter-spacing:-0.03em;color:var(--navy)}
+  .case-row{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:9px 0;font-size:14.5px}
+  .case-row:first-of-type{border-top:none}
+
+  .hidden{display:none}
+  footer{max-width:980px;margin:0 auto;padding:0 24px 46px;font-size:13px;color:var(--slate)}
+  footer p+p{margin-top:6px}
+  @media (max-width:560px){.card{padding:18px}.band{padding:32px 20px 26px}}
+
+  /* ── BKO-laag (didactische verantwoording) ── */
+  .bko-btn{margin-top:16px;background:transparent;border:1px solid rgba(255,255,255,.45);color:#dfe8f2;border-radius:999px;padding:7px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .bko-btn:hover{border-color:#fff;color:#fff}
+  .bko-btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  body:not(.bko-on) .bko-only{display:none}
+  .bko-tag{display:inline-block;background:#efecf9;color:#4f3fae;border:1px solid #d8d2f0;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;margin:0 6px 6px 0}
+  .bko-panel{background:#f8f6fd;border:1px solid #ddd6f3;border-radius:10px;padding:26px;margin-bottom:18px}
+  .bko-panel h2{color:#4f3fae}
+  .bko-panel .bko-intro{font-size:13.5px;color:#6b6394;margin-bottom:8px}
+  .bko-row{padding:12px 0;border-top:1px solid #e6e1f5}
+  .bko-row h3{font-size:15px;font-weight:700;margin-bottom:3px}
+  .bko-row p{font-size:14.5px}
+  .bko-refs{margin-top:12px;font-size:13px;color:#6b6394}
+
+.vitals{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:14px 0}
+.vt{background:var(--viewer);border-radius:8px;padding:10px 12px;color:#dfe8f2}
+.vt .k{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:#8fa3b8}
+.vt .v{font-size:22px;font-weight:800;margin-top:2px}
+.vt.alarm .v{color:#ff8f8f}
+.sbar-grid{display:grid;gap:10px;margin:12px 0}
+.sbar-grid label{font-weight:700;font-size:14px}
+.sbar-grid textarea{width:100%;min-height:54px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:14.5px;resize:vertical}
+.sbar-grid textarea:focus{outline:2px solid var(--cyan);outline-offset:1px}
+.chk{list-style:none;padding:0;margin:10px 0 0}
+.chk li{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:14.5px}
+.chk input{margin-top:3px;width:16px;height:16px;accent-color:var(--navy)}
+.caller{font-style:italic;background:#fff;border-left:4px solid var(--cyan);padding:10px 14px;border-radius:0 8px 8px 0;margin:10px 0}
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="band-inner">
+    <h1>De afdeling belt: dienstsimulatie verpleegafdeling</h1>
+    <p class="sub">Zes oproepen zoals je ze in week 1&ndash;4 echt krijgt. Per oproep: eerst beoordelen, dan handelen, dan hardop overdragen volgens SBAR &mdash; in een omgeving waar een verkeerde keuze alleen een leermoment kost.</p>
+    <p class="dept">Coschap Cardiothoracale Chirurgie &middot; Maastricht UMC+ &middot; fictieve casu&iuml;stiek op richtlijn-hoofdlijnen; het lokale protocol en je supervisor zijn altijd leidend</p>
+    <button class="bko-btn" id="btn-bko" aria-pressed="false">Didactische verantwoording tonen</button>
+  </div>
+</header>
+
+<main>
+  <section class="bko-panel bko-only">
+    <h2>Didactische verantwoording (BKO-laag)</h2>
+    <p class="bko-intro">Voor beoordelaars en collega-docenten &mdash; de student ziet deze laag alleen als hij hem zelf aanzet.</p>
+    <div class="bko-row"><h3>Hele taak in een veilige context (4C/ID)</h3><p>Elke oproep is een complete, betekenisvolle taak &mdash; melding, beoordeling, actie, overdracht &mdash; geen losse feitenvraag. De zes casussen vari&euml;ren binnen dezelfde taakklasse (verslechterende postoperatieve pati&euml;nt), zodat de student het patroon leert en niet het antwoord (Van Merri&euml;nboer &amp; Kirschner, 2018).</p></div>
+    <div class="bko-row"><h3>Eerst beoordelen, dan handelen</h3><p>De vraagvolgorde dwingt de redeneerstap af die op de werkvloer impliciet blijft: w&aacute;t is er aan de hand, en pas daarna: wat doe je. Dat is modeling van klinisch redeneren in ontworpen vorm (Collins e.a., 1989).</p></div>
+    <div class="bko-row"><h3>SBAR als articulatie met zelfbeoordeling</h3><p>De student formuleert de overdracht zelf (articulation) en vergelijkt daarna met een voorbeeld via een checklist &mdash; feed up, feed back &eacute;n feed forward zonder afrekenen (Hattie &amp; Timperley, 2007). Vrije tekst wordt bewust niet automatisch beoordeeld: het doel is hardop leren formuleren, niet een goed/fout-oordeel over stijl.</p></div>
+    <div class="bko-row"><h3>Geen tijdsdruk of competitie</h3><p>Bewuste ontwerpkeuze (leerpunt uit mijn microteaching): het middel mag geen didactiek afdwingen die haaks staat op het doel. Urgentie zit in de cas&iuml;stiek, niet in een aflopende klok.</p></div>
+    <div class="bko-row"><h3>Verticale integratie</h3><p>De casussen zijn de levende versie van het &lsquo;bel direct bij&rsquo;-kader en het SBAR-kader uit het handboek (hoofdstuk 5&ndash;6): eerst hier oefenen, daarna herkennen op de afdeling.</p></div>
+    <p class="bko-refs">Collins e.a. (1989); Hattie &amp; Timperley (2007); Van Merri&euml;nboer &amp; Kirschner (2018). Volledige verwijzingen: zie portfolio.</p>
+  </section>
+
+  <section class="card">
+    <h2>Hoe werkt het</h2>
+    <p>Je hebt avonddienst als semi-arts. De verpleegkundige belt je zes keer. Per oproep beantwoord je twee keuzevragen (elk 1 punt, samen 12) en schrijf je daarna je SBAR-overdracht uit &mdash; die vergelijk je zelf met een voorbeeld. Schrijf de SBAR echt uit of spreek hem hardop: dat is waar het leren zit.</p>
+    <p class="small muted">Vuistregels en drempelwaarden zijn onderwijsversies op hoofdlijnen; volg in het echt altijd het lokale protocol. En onthoud de belangrijkste regel uit het handboek: te vroeg bellen bestaat niet.</p>
+    <p><button class="btn" id="start">Start je dienst</button></p>
+  </section>
+
+  <section class="card hidden" id="game">
+    <div class="dots" id="dots"></div>
+    <h2 id="c-title"></h2>
+    <div class="caller" id="c-caller"></div>
+    <div class="vitals" id="c-vitals"></div>
+    <div id="c-step"></div>
+    <div id="c-feedback"></div>
+  </section>
+
+  <section class="card hidden" id="result">
+    <h2>Einde van je dienst</h2>
+    <div class="score-line"><span class="score-big" id="score">0</span><span class="muted">van 12 punten</span></div>
+    <div id="rescases"></div>
+    <div class="feedback" style="margin-top:16px">
+      <h3>Het patroon achter deze zes</h3>
+      <p>Elke oproep draaide om dezelfde drie vragen: wat is het ergste dat dit kan zijn, wat doe ik z&eacute;lf nu, en wie moet dit n&uacute; weten. Bij twijfel is het antwoord op die laatste vraag altijd: je supervisor. Neem je uitgeschreven SBAR&rsquo;s mee naar je eerste begeleidingsgesprek &mdash; ze laten precies zien waar je staat.</p>
+    </div>
+    <button class="btn ghost" id="again">Dienst opnieuw draaien</button>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+document.body.classList.remove("bko-on");
+$("btn-bko").addEventListener("click", () => {
+  const on = document.body.classList.toggle("bko-on");
+  $("btn-bko").setAttribute("aria-pressed", on);
+  $("btn-bko").textContent = on ? "Didactische verantwoording verbergen" : "Didactische verantwoording tonen";
+});
+
+const CASES = [
+ {
+  t:"Oproep 1 — 21:30, kamer 3",
+  caller:"\u201CDokter, ik bel over meneer V., vandaag teruggekomen van de IC na zijn drievats-bypass. Zijn drain liep steeds 40 tot 60 milliliter per uur, maar het afgelopen uur is er 250 milliliter uitgekomen, helderrood. Kom je kijken?\u201D",
+  vitals:[["Pols","108",1],["Tensie","98/62",1],["Saturatie","96%",0],["Temp","36,1 \u00B0C",0],["CVD","7",0],["Drain/uur","250 ml",1]],
+  q1:{v:"Wat is je beoordeling?",opts:["Normale productie zo kort na een bypass; de IC heeft hem niet voor niets ontslagen","Nabloeding tot het tegendeel bewezen is: de trend is gebroken en het bloed is helderrood","Gunstig teken: de drain draineert goed, dus er hoopt zich niets op","Reactie op het mobiliseren van vanmiddag; morgen opnieuw beoordelen"],juist:1,
+   uitleg:"Meer dan \u00B1200 ml/uur \u2014 of een plots gebroken trend \u2014 is een nabloeding tot het tegendeel bewezen is. Helderrood past bij actief bloedverlies; de tachycardie met krappe tensie past bij ondervulling. De trend zegt hier meer dan \u00E9\u00E9n getal."},
+  q2:{v:"Wat doe je nu eerst?",opts:["Over een uur opnieuw laten meten en dan beslissen","Direct je supervisor bellen en alvast lab, stollingsstatus en kruisbloed inzetten","De drain tijdelijk afklemmen zodat het verlies stopt","Extra pijnstilling geven; onrust verhoogt de bloeddruk en dus het verlies"],juist:1,
+   uitleg:"Dit is een klassiek \u2018bel direct\u2019-moment: melden \u00E9n parallel voorbereiden (lab, stolling, kruisbloed) zodat geen tijd verloren gaat als re-exploratie nodig is. Een drain klem je nooit af: dan verplaats je het bloed naar het pericard en organiseer je een tamponade."},
+  sbar:{S:"Ik bel over meneer V., kamer 3, dag 0 na een drievats-CABG: zijn drain produceerde het afgelopen uur 250 ml helderrood bloed.",B:"Vanmiddag van de IC gekomen; tot nu toe 40\u201360 ml per uur; hij krijgt trombocytenaggregatieremming volgens protocol.",A:"Pols 108, tensie 98/62, CVD 7. Ik maak me zorgen over een nabloeding.",R:"Wilt u nu komen kijken? Ik heb alvast lab, stolling en kruisbloed ingezet."}
+ },
+ {
+  t:"Oproep 2 — 23:10, kamer 7",
+  caller:"\u201CMevrouw B., dag 1 na haar aortaklepvervanging \u2014 haar drain staat al drie uur helemaal stil, ze wordt steeds onrustiger en heeft amper geplast. Haar tensie zakt.\u201D",
+  vitals:[["Pols","118",1],["Tensie","84/55",1],["Saturatie","94%",0],["CVD","16 \u2191",1],["Drain/3 uur","0 ml",1],["Urine/uur","10 ml",1]],
+  q1:{v:"Wat is je beoordeling?",opts:["De drain staat stil, dus de bloeding is gestopt \u2014 dit is juist geruststellend","Ondervulling doordat zij te weinig vocht heeft gekregen","Tamponade tot het tegendeel bewezen is: stille drain, shockbeeld en stijgende CVD","Beginnend delier; de onrust verklaart de tachycardie"],juist:2,
+   uitleg:"Hypotensie m\u00E9t stijgende CVD, oligurie en onrust bij een drain die plots zwijgt: denk tamponade. Een verstopte drain kan een actieve bloeding maskeren \u2014 het bloed hoopt zich dan op rond het hart. Bij ondervulling zou de CVD juist laag zijn: die twee getallen samen maken de diagnose."},
+  q2:{v:"Wat doe je nu eerst?",opts:["Direct je supervisor (spoed) bellen; spoedecho regelen en rekening houden met re-sternotomie","Furosemide geven voor de lage urineproductie","De drain verwijderen: hij doet toch niets meer","Haloperidol voor de onrust en over een uur herbeoordelen"],juist:0,
+   uitleg:"Dit is een spoedsituatie: onmiddellijk melden, echo cito, en het team voorbereiden op decompressie. Furosemide is hier gevaarlijk \u2014 het hart is juist afhankelijk van vulling. De onrust is geen psychiatrie maar cerebrale hypoperfusie."},
+  sbar:{S:"Ik bel met spoed over mevrouw B., kamer 7, dag 1 na een AVR: haar drain staat drie uur stil terwijl ze hemodynamisch verslechtert.",B:"Gisteren ongecompliceerde klepvervanging; drains liepen aanvankelijk normaal.",A:"Tensie 84/55, pols 118, CVD 16 en stijgend, urine 10 ml/uur, toenemend onrustig. Ik denk aan een tamponade.",R:"Wilt u onmiddellijk komen? Zal ik alvast de spoedecho laten aanvragen?"}
+ },
+ {
+  t:"Oproep 3 — 01:45, kamer 5",
+  caller:"\u201CMeneer K., dag 2 na zijn bypass \u2014 de monitor staat ineens op 140 en het is helemaal onregelmatig. Hij voelt zijn hart bonzen maar heeft geen pijn op de borst.\u201D",
+  vitals:[["Pols","142 irregulair",1],["Tensie","118/74",0],["Saturatie","96%",0],["Temp","37,4 \u00B0C",0]],
+  q1:{v:"Wat is je beoordeling?",opts:["Postoperatief atriumfibrilleren \u2014 het klassieke beeld van dag 2\u20133, bij \u00B130% van de pati\u00EBnten","Ventrikeltachycardie: onmiddellijk reanimatiesetting","Sinustachycardie door pijn","Artefact van losse plakkers; eerst de monitor controleren"],juist:0,
+   uitleg:"Onregelmatig, snel, dag 2\u20133 na hartchirurgie: POAF, veruit de meest voorkomende ritmestoornis na hartchirurgie. Hij is hemodynamisch stabiel \u2014 dat bepaalt het tempo van je handelen. Bij instabiliteit was dit een ander gesprek geweest."},
+  q2:{v:"Wat doe je nu eerst?",opts:["Direct elektrisch cardioverteren","Kalium en magnesium controleren en aanvullen (streef kalium > 4,5), ECG maken en met je supervisor het protocol voor frequentie- of ritmecontrole afspreken","Niets \u2014 dit gaat vrijwel altijd vanzelf over","De betablokker van vanavond laten vervallen"],juist:1,
+   uitleg:"Bij een stabiele pati\u00EBnt: eerst de voorwaarden op orde (elektrolyten!), documenteren met een ECG, en het beleid s\u00E1men met je supervisor volgens protocol. Cardioversie is voor instabiliteit. En de betablokker staken zou het probleem juist voeden."},
+  sbar:{S:"Ik bel over meneer K., kamer 5, dag 2 na CABG: nieuw onregelmatig ritme rond de 140 per minuut.",B:"Tot vanavond sinusritme; hij gebruikt een betablokker volgens schema.",A:"Hemodynamisch stabiel, tensie 118/74, geen pijn op de borst; ik denk aan postoperatief atriumfibrilleren. ECG is gemaakt en lab met kalium en magnesium is ingezet.",R:"Kunt u meekijken naar het beleid \u2014 frequentie- of ritmecontrole volgens protocol \u2014 en wilt u het ECG beoordelen?"}
+ },
+ {
+  t:"Oproep 4 — 08:20, kamer 12",
+  caller:"\u201CMevrouw J., dag 5 na haar klep- en bypassoperatie, heeft 38,9 koorts. De sternumwond lekt vocht dat er troebel uitziet, en ze zegt dat het \u2018klikt\u2019 in haar borstbeen als ze hoest.\u201D",
+  vitals:[["Pols","104",1],["Tensie","110/70",0],["Temp","38,9 \u00B0C",1],["Saturatie","95%",0],["Wond","lekkage + klikken",1]],
+  q1:{v:"Wat is je beoordeling?",opts:["Normale wondgenezing; wat wondvocht op dag 5 is gebruikelijk","Oppervlakkige huidirritatie van de pleisters","Diepe sternumwondinfectie (mediastinitis) tot het tegendeel bewezen is","Koorts past eerder bij een urineweginfectie; eerst urine nakijken"],juist:2,
+   uitleg:"Koorts pl\u00FAs een lekkende wond pl\u00FAs sternuminstabiliteit (\u2018klikken\u2019) is de trias die je nooit mag wegredeneren: mediastinitis tot het tegendeel bewezen is. Andere koortsbronnen zoek je daarn\u00E1\u00E1st, niet in plaats daarvan."},
+  q2:{v:"Wat doe je nu eerst?",opts:["De wond opnieuw afplakken en morgen bij de visite beoordelen","Je supervisor bellen; bloedkweken en een wondkweek afnemen; niet zelf antibiotica starten zonder overleg","Aan bed de hechtingen verwijderen om de wond te inspecteren","Paracetamol geven en het beloop vervolgen"],juist:1,
+   uitleg:"Melden en kweken v\u00F3\u00F3r antibiotica \u2014 de verwekker bepaalt straks het beleid, en een diepe sternumwondinfectie is een chirurgisch probleem dat de staf moet zien. Zelf de wond openmaken doe je niet: dat gebeurt zo nodig gecontroleerd, door het team."},
+  sbar:{S:"Ik bel over mevrouw J., kamer 12, dag 5 na AVR met CABG: koorts van 38,9 met een lekkende sternumwond.",B:"Tot gisteren droge wond en normaal beloop.",A:"Het wondvocht oogt troebel en zij voelt haar sternum klikken bij hoesten; pols 104. Ik ben bang voor een diepe sternumwondinfectie.",R:"Wilt u de wond vandaag zelf beoordelen? Ik neem alvast bloedkweken en een wondkweek af en start niets zonder overleg."}
+ },
+ {
+  t:"Oproep 5 — 14:05, kamer 9",
+  caller:"\u201CMeneer R. \u2014 vanmiddag is zijn thoraxdrain verwijderd na de lobectomie \u2014 is nu acuut heel benauwd. Ik hoor rechts geen ademgeruis en zijn tensie zakt. Kom alsjeblieft direct!\u201D",
+  vitals:[["Pols","128",1],["Tensie","82/50",1],["Saturatie","84% (15 l NRM)",1],["Ademgeruis re","afwezig",1],["Halsvenen","gestuwd",1]],
+  q1:{v:"Wat is je beoordeling?",opts:["Longembolie \u2014 klassiek na thoraxchirurgie","Spanningspneumothorax tot het tegendeel bewezen is","Astma cardiale door overvulling","Paniekaanval na het verwijderen van de drain"],juist:1,
+   uitleg:"Acute dyspnoe met eenzijdig opgeheven ademgeruis, obstructieve shock en gestuwde halsvenen direct na drainverwijdering: spanningspneumothorax. Dit is een kl\u00EDnische diagnose \u2014 dezelfde casus zit in je pre-/posttoets, en hier zie je hem in het echt tempo."},
+  q2:{v:"Wat doe je nu eerst?",opts:["Een X-thorax aanvragen en de uitslag afwachten","Spoedbel: supervisor en spoedteam direct \u2014 dit vraagt onmiddellijke naalddecompressie en een nieuwe drain door wie daartoe bevoegd is; blijf zelf bij de pati\u00EBnt met zuurstof","Salbutamol laten verneveln","Morfine tegen de benauwdheid en angst"],juist:1,
+   uitleg:"Niet wachten op beeldvorming: elke minuut telt. Jouw rol als semi-arts is alarmeren, bij de pati\u00EBnt blijven, zuurstof maximaliseren en het team faciliteren \u2014 de decompressie zelf is voorbehouden aan wie daarin bekwaam en bevoegd is."},
+  sbar:{S:"Spoedmelding: meneer R., kamer 9, acuut respiratoir en circulatoir instabiel na het verwijderen van zijn thoraxdrain.",B:"Lobectomie rechts, drain vanmiddag verwijderd.",A:"Rechts geen ademgeruis, saturatie 84% ondanks 15 liter, tensie 82/50, gestuwde halsvenen \u2014 dit is een spanningspneumothorax tot het tegendeel bewezen is.",R:"Kom onmiddellijk voor decompressie; ik blijf bij de pati\u00EBnt en de drainset ligt klaar."}
+ },
+ {
+  t:"Oproep 6 — 06:40, kamer 2",
+  caller:"\u201CMevrouw T., dag 1 na haar aortaklepvervanging, heeft een pols van 38 en wordt duizelig zodra ze rechtop komt. Haar pacemakerdraadjes zitten er nog in. Moet ik de betablokker van 7 uur gewoon geven?\u201D",
+  vitals:[["Pols","38",1],["Tensie","92/58",1],["Saturatie","96%",0],["Pacemakerdraden","in situ",0]],
+  q1:{v:"Wat is je beoordeling?",opts:["Vagale ochtendreactie; onschuldig bij ouderen","Normaal effect van de betablokker; dosis gewoon voortzetten","Geleidingsstoornis na aortaklepchirurgie \u2014 een bekend en re\u00EBel risico door de ligging van de AV-knoop bij de klepring","Dehydratie; eerst vocht geven"],juist:2,
+   uitleg:"De geleidingsbundel loopt vlak langs de aortaklepannulus: bradycardie of AV-blok na AVR is nooit \u2018gewoon vagaal\u2019 tot bewezen. Dat zij symptomatisch is (duizelig) maakt het urgent \u2014 en dat de pacemakerdraden er nog in zitten is geen toeval maar precies hiervoor."},
+  q2:{v:"Wat doe je nu eerst?",opts:["Supervisor bellen; ECG maken; de tijdelijke pacemakerdraden laten controleren en aansluiten; atropine paraat \u2014 en de betablokker n\u00EDet geven zonder overleg","De betablokker geven zoals voorgeschreven; schema is schema","Haar laten liggen tot de visite; liggend heeft ze nergens last van","Alleen een ECG voor de overdracht straks"],juist:0,
+   uitleg:"E\u00E9n samenhangend pakket: melden, documenteren, de achtervang (pacemakerdraden, atropine) klaarzetten en vooral niets geven dat de geleiding verder remt. \u2018Schema is schema\u2019 is hier het gevaarlijkste antwoord van de dag."},
+  sbar:{S:"Ik bel over mevrouw T., kamer 2, dag 1 na een AVR: symptomatische bradycardie van 38 per minuut.",B:"Gisteren klepvervanging; tijdelijke pacemakerdraden in situ; betablokker staat gepland voor 7 uur.",A:"Tensie 92/58, duizelig bij rechtop komen; ik denk aan een geleidingsstoornis na de klepchirurgie. ECG wordt gemaakt.",R:"Wilt u komen beoordelen of de pacemakerdraden aangesloten moeten worden \u2014 en akkoord dat ik de betablokker aanhoud tot u er bent?"}
+ }
+];
+
+let i = 0, phase = 0, scores = [], sub = [0,0];
+$("start").addEventListener("click", () => { i = 0; scores = []; $("result").classList.add("hidden"); $("game").classList.remove("hidden"); render(); });
+$("again").addEventListener("click", () => { i = 0; scores = []; $("result").classList.add("hidden"); $("game").classList.remove("hidden"); render(); });
+
+function dots(){
+  const d = $("dots"); d.innerHTML = "";
+  CASES.forEach((c,k) => { const s = document.createElement("span"); s.className = "dot" + (k===i?" now":(k<i?" done":"")); d.appendChild(s); });
+  const l = document.createElement("span"); l.className = "lbl"; l.textContent = "Oproep " + (i+1) + " van " + CASES.length; d.appendChild(l);
+}
+function render(){
+  const c = CASES[i]; phase = 0; sub = [0,0];
+  dots();
+  $("c-title").textContent = c.t;
+  $("c-caller").textContent = c.caller;
+  $("c-vitals").innerHTML = c.vitals.map(v => '<div class="vt'+(v[2]?' alarm':'')+'"><div class="k">'+v[0]+'</div><div class="v">'+v[1]+'</div></div>').join("");
+  $("c-feedback").innerHTML = "";
+  renderQ(c.q1, 0);
+}
+function renderQ(q, which){
+  $("c-step").innerHTML = '<p class="prompt">'+q.v+'</p><div class="opts" id="opts"></div><div class="miniresult" id="mini"></div>';
+  const letters = "ABCD";
+  q.opts.forEach((o,k) => {
+    const b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    b.innerHTML = '<span class="letter">'+letters[k]+'</span><span>'+o+'</span>';
+    b.addEventListener("click", () => answer(k, q, which));
+    $("opts").appendChild(b);
+  });
+}
+function answer(k, q, which){
+  const opts = document.querySelectorAll("#opts .opt");
+  opts.forEach(o => o.disabled = true);
+  opts[q.juist].classList.add("correct");
+  const goed = k === q.juist;
+  if(!goed) opts[k].classList.add("wrong");
+  sub[which] = goed ? 1 : 0;
+  $("mini").className = "miniresult " + (goed ? "ok" : "nok");
+  $("mini").textContent = goed ? "Juist. +1 punt." : "Niet het beste antwoord — lees de uitleg.";
+  $("c-feedback").innerHTML = '<div class="feedback"><h3>Uitleg</h3><p>'+q.uitleg+'</p></div><button class="btn" id="verder">'+(which===0?"Naar je actie? Nee — eerst dit: wat doe je nu?":"Naar je SBAR-overdracht")+'</button>';
+  $("verder").textContent = which===0 ? "Volgende vraag: wat doe je nu?" : "Naar je SBAR-overdracht";
+  $("verder").addEventListener("click", () => {
+    if(which===0){ $("c-feedback").innerHTML=""; renderQ(CASES[i].q2, 1); }
+    else renderSbar();
+  });
+}
+function renderSbar(){
+  $("c-feedback").innerHTML = "";
+  $("c-step").innerHTML =
+    '<p class="prompt">Schrijf nu je overdracht uit volgens SBAR \u2014 alsof je supervisor opneemt.</p>'+
+    '<div class="sbar-grid">'+
+    ["S \u2014 Situation","B \u2014 Background","A \u2014 Assessment","R \u2014 Recommendation"].map((l,k)=>'<div><label for="sb'+k+'">'+l+'</label><textarea id="sb'+k+'" placeholder="Typ hier\u2026"></textarea></div>').join("")+
+    '</div><button class="btn" id="sbar-toon">Vergelijk met het voorbeeld</button>';
+  $("sbar-toon").addEventListener("click", toonSbar);
+}
+function toonSbar(){
+  const c = CASES[i];
+  const laatste = i === CASES.length - 1;
+  scores.push(sub[0] + sub[1]);
+  $("c-feedback").innerHTML =
+    '<div class="feedback"><h3>Voorbeeld-SBAR</h3>'+
+    '<p><strong>S:</strong> '+c.sbar.S+'</p><p><strong>B:</strong> '+c.sbar.B+'</p><p><strong>A:</strong> '+c.sbar.A+'</p><p><strong>R:</strong> '+c.sbar.R+'</p>'+
+    '<h3 style="margin-top:14px">Check je eigen versie</h3><ul class="chk">'+
+    ['Ik noemde concrete cijfers (drainproductie, tensie, pols) in plaats van \u201Chet gaat niet goed\u201D',
+     'Ik sprak mijn eigen beoordeling of zorg expliciet uit (de A wordt het vaakst overgeslagen)',
+     'Ik eindigde met een concrete vraag of een concreet verzoek',
+     'Ik hield de achtergrond kort \u2014 alleen wat de ontvanger n\u00FA nodig heeft',
+     'Ik benoemde wat ik zelf al heb ingezet of klaargelegd'].map(x=>'<li><input type="checkbox"> <span>'+x+'</span></li>').join("")+
+    '</ul><p class="small muted" style="margin-top:8px">Vink eerlijk \u2014 dit telt niet mee voor je score, maar dit lijstje is precies waar supervisors op letten.</p></div>'+
+    '<button class="btn" id="next">'+(laatste?"Naar je resultaat":"Volgende oproep")+'</button>';
+  $("next").addEventListener("click", () => {
+    if(laatste){ toonResult(); } else { i++; render(); }
+    window.scrollTo({top:0});
+  });
+}
+function toonResult(){
+  $("game").classList.add("hidden");
+  const tot = scores.reduce((a,b)=>a+b,0);
+  $("score").textContent = tot;
+  $("rescases").innerHTML = CASES.map((c,k)=>'<p class="small" style="margin:4px 0"><strong>'+c.t+':</strong> '+scores[k]+' van 2 punten</p>').join("");
+  $("result").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
